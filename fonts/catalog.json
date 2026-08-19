@@ -1,0 +1,12 @@
+{
+  "fonts": [
+    {
+      "name": "demo_16",
+      "meta": "demo_16.meta.json"
+    },
+    {
+      "name": "demo_20",
+      "meta": "demo_20.meta.json"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "_comment": "Claude Desktop MCP 配置示例——放到 %APPDATA%/Claude/claude_desktop_config.json 的 mcpServers 段里",
+  "mcpServers": {
+    "eez-studio": {
+      "command": "python",
+      "args": ["<repo>/eez_mcp_server.py"],
+      "env": {
+        "EEZ_BRIDGE_URL": "http://127.0.0.1:17620",
+        "EEZ_WORKDIR": "<repo>"
+      }
+    }
+  }
+}

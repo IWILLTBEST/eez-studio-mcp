@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+_shots/
+*.eez-project
+*.eez-project-ui-state
+action.h
+node_modules/

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1024">
+<title>MotorDrive MD-200 — Motor Controller</title>
+<style>
+:root {
+  --bg-page:#0A0E14;--bg-panel:#151B28;--bg-card:#1C2333;--border:#2A3040;
+  --text-primary:#E0E4EA;--text-muted:#7A8499;
+  --accent-blue:#2E86DE;--accent-cyan:#0ABDE3;--status-green:#27AE60;
+  --alert-amber:#F6B93B;--critical-red:#E74C3C;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0d1117;display:flex;flex-direction:column;align-items:center;
+  font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:var(--text-primary);font-size:13px;}
+.device-frame{width:1024px;height:600px;border:2px solid #333;border-radius:8px;overflow:hidden;
+  background:var(--bg-page);display:flex;flex-direction:column;flex-shrink:0;}
+.status-bar{height:36px;background:var(--bg-panel);display:flex;align-items:center;padding:0 12px;gap:14px;
+  border-bottom:1px solid var(--border);flex-shrink:0;font-size:12px;}
+.status-bar .device-name{font-weight:700;font-size:13px;color:var(--accent-blue);}
+.status-item{display:flex;align-items:center;gap:4px;}
+.status-dot{width:7px;height:7px;border-radius:50%;}
+.status-dot.green{background:var(--status-green);}
+.status-dot.amber{background:var(--alert-amber);}
+.status-label{color:var(--text-muted);font-size:11px;}
+.main-content{flex:1;display:flex;overflow:hidden;}
+.nav-bar{width:64px;background:var(--bg-panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:6px;flex-shrink:0;}
+.nav-btn{width:52px;height:52px;background:0 0;border:none;color:var(--text-muted);font-size:20px;
+  border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.nav-btn span{font-size:10px;}
+.nav-btn.active{background:rgba(46,134,222,.25);color:var(--accent-blue);border-left:3px solid var(--accent-blue);}
+.screen-area{flex:1;display:none;flex-direction:column;overflow:hidden;}
+.screen-area.active{display:flex;}
+
+/* Screen 1: Dashboard */
+.dashboard{padding:16px;display:flex;flex-direction:column;gap:12px;height:100%;}
+.metrics-row{display:flex;gap:12px;}
+.metric-card{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.metric-card .mc-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;}
+.metric-card .mc-value{font-size:28px;font-weight:700;color:var(--accent-cyan);margin:4px 0;}
+.metric-card .mc-unit{font-size:11px;color:var(--text-muted);}
+.gauge-row{display:flex;gap:12px;flex:1;}
+.gauge-panel{flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.gauge-panel .gp-title{font-size:11px;color:var(--text-muted);margin-bottom:8px;}
+.gauge-circle{width:120px;height:120px;border-radius:50%;border:4px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+.gauge-circle .gc-value{font-size:24px;font-weight:700;}
+.gauge-circle .gc-unit{font-size:10px;color:var(--text-muted);}
+.gauge-circle.speed .gc-value{color:var(--accent-blue);}
+.gauge-circle.temp .gc-value{color:var(--alert-amber);}
+.control-row{display:flex;gap:12px;}
+.ctrl-panel{flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px;
+  display:flex;flex-direction:column;gap:8px;}
+.ctrl-panel .cp-title{font-size:11px;color:var(--text-muted);font-weight:600;}
+.slider-row{display:flex;align-items:center;gap:8px;}
+.slider-row .sl-label{font-size:11px;color:var(--text-muted);width:50px;}
+.slider-row input[type=range]{flex:1;accent-color:var(--accent-blue);}
+.slider-row .sl-value{font-size:13px;color:var(--accent-cyan);width:50px;text-align:right;}
+.toggle-row{display:flex;align-items:center;gap:8px;}
+.toggle-row .tg-label{font-size:11px;color:var(--text-muted);width:60px;}
+.toggle{width:40px;height:20px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);
+  cursor:pointer;position:relative;transition:.2s;}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--text-muted);
+  top:1px;left:2px;transition:.2s;}
+.toggle.on{background:rgba(39,174,96,.3);border-color:var(--status-green);}
+.toggle.on::after{left:20px;background:var(--status-green);}
+
+/* Screen 2: Parameters */
+.params-screen{padding:16px;display:flex;gap:12px;height:100%;overflow-y:auto;}
+.param-section{flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.param-section h3{font-size:12px;font-weight:600;color:var(--accent-blue);margin-bottom:10px;
+  padding-bottom:6px;border-bottom:1px solid var(--border);}
+.param-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(42,48,64,.5);}
+.param-row .pr-label{font-size:11px;color:var(--text-muted);width:70px;}
+.param-row .pr-value{font-size:12px;flex:1;}
+.param-row select{background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+  border-radius:4px;padding:4px 8px;font-size:11px;}
+.param-row input[type=range]{flex:1;accent-color:var(--accent-blue);}
+.param-row .pr-num{font-size:13px;color:var(--accent-cyan);width:60px;text-align:right;}
+
+/* Screen 3: Alarms */
+.alarm-screen{padding:16px;display:flex;flex-direction:column;gap:12px;height:100%;}
+.alarm-list{flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;overflow-y:auto;}
+.alarm-header{display:flex;padding:8px 12px;font-size:10px;color:var(--text-muted);text-transform:uppercase;
+  border-bottom:1px solid var(--border);background:var(--bg-card);}
+.alarm-item{display:flex;padding:8px 12px;border-bottom:1px solid rgba(42,48,64,.3);align-items:center;}
+.alarm-item .al-severity{width:8px;height:8px;border-radius:50%;margin-right:10px;flex-shrink:0;}
+.alarm-item .al-time{width:80px;font-size:11px;color:var(--text-muted);}
+.alarm-item .al-text{flex:1;font-size:12px;}
+.alarm-item .al-ack{width:50px;}
+.ack-btn{background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);
+  border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;}
+.alarm-summary{display:flex;gap:12px;}
+.summary-card{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;
+  padding:8px 12px;display:flex;align-items:center;gap:8px;}
+.summary-card .sc-count{font-size:20px;font-weight:700;}
+.summary-card .sc-label{font-size:10px;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<div class="device-frame">
+  <div class="status-bar">
+    <div class="device-name">MotorDrive MD-200</div>
+    <div class="status-item"><div class="status-dot green"></div><span class="status-label">运行</span></div>
+    <div class="status-item"><div class="status-dot green"></div><span class="status-label">CAN</span></div>
+    <div class="status-item"><div class="status-dot amber"></div><span class="status-label">RS485</span></div>
+    <div style="flex:1;"></div>
+    <div class="status-item"><span>输出: 45.2 Hz</span></div>
+    <div class="status-item"><span>2026-08-18 14:30</span></div>
+  </div>
+
+  <div class="main-content">
+    <div class="nav-bar">
+      <button class="nav-btn active" onclick="switchScreen(0)"><span>🏠</span><span>总览</span></button>
+      <button class="nav-btn" onclick="switchScreen(1)"><span>⚙️</span><span>参数</span></button>
+      <button class="nav-btn" onclick="switchScreen(2)"><span>⚠️</span><span>报警</span></button>
+    </div>
+
+    <div class="screen-area active" id="screen-0">
+      <div class="dashboard">
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="mc-label">转速 Speed</div>
+            <div class="mc-value">1350</div>
+            <div class="mc-unit">RPM</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label">扭矩 Torque</div>
+            <div class="mc-value">42.5</div>
+            <div class="mc-unit">N·m</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label">功率 Power</div>
+            <div class="mc-value">6.2</div>
+            <div class="mc-unit">kW</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label">效率 Efficiency</div>
+            <div class="mc-value">94.8</div>
+            <div class="mc-unit">%</div>
+          </div>
+        </div>
+        <div class="gauge-row">
+          <div class="gauge-panel">
+            <div class="gp-title">电机温度</div>
+            <div class="gauge-circle temp">
+              <div class="gc-value">62</div>
+              <div class="gc-unit">°C</div>
+            </div>
+          </div>
+          <div class="gauge-panel">
+            <div class="gp-title">母线电压</div>
+            <div class="gauge-circle speed">
+              <div class="gc-value">540</div>
+              <div class="gc-unit">V DC</div>
+            </div>
+          </div>
+          <div class="gauge-panel">
+            <div class="gp-title">输出电流</div>
+            <div class="gauge-circle speed">
+              <div class="gc-value">12.8</div>
+              <div class="gc-unit">A</div>
+            </div>
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="ctrl-panel">
+            <div class="cp-title">速度控制</div>
+            <div class="slider-row">
+              <span class="sl-label">目标</span>
+              <input type="range" min="0" max="3000" value="1350">
+              <span class="sl-value">1350</span>
+            </div>
+            <div class="slider-row">
+              <span class="sl-label">加速</span>
+              <input type="range" min="1" max="30" value="5">
+              <span class="sl-value">5.0s</span>
+            </div>
+          </div>
+          <div class="ctrl-panel">
+            <div class="cp-title">运行控制</div>
+            <div class="toggle-row">
+              <span class="tg-label">正转</span>
+              <div class="toggle on"></div>
+              <span style="font-size:11px;color:var(--status-green);">运行中</span>
+            </div>
+            <div class="toggle-row">
+              <span class="tg-label">节能</span>
+              <div class="toggle"></div>
+              <span style="font-size:11px;color:var(--text-muted);">关闭</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-area" id="screen-1">
+      <div class="params-screen">
+        <div class="param-section">
+          <h3>电机参数 / Motor</h3>
+          <div class="param-row"><span class="pr-label">额定功率</span><span class="pr-value">7.5 kW</span></div>
+          <div class="param-row"><span class="pr-label">额定电压</span><span class="pr-value">380 V AC</span></div>
+          <div class="param-row"><span class="pr-label">额定电流</span><span class="pr-value">16.5 A</span></div>
+          <div class="param-row"><span class="pr-label">极数</span>
+            <select><option>4 极</option><option>2 极</option><option>6 极</option></select>
+          </div>
+          <div class="param-row"><span class="pr-label">控制模式</span>
+            <select><option selected>V/F 控制</option><option>矢量控制</option><option>伺服</option></select>
+          </div>
+          <div class="param-row"><span class="pr-label">载波频率</span>
+            <input type="range" min="2" max="16" value="8"><span class="pr-num">8 kHz</span>
+          </div>
+        </div>
+        <div class="param-section">
+          <h3>保护参数 / Protection</h3>
+          <div class="param-row"><span class="pr-label">过流保护</span>
+            <input type="range" min="50" max="200" value="150"><span class="pr-num">150%</span>
+          </div>
+          <div class="param-row"><span class="pr-label">过压保护</span>
+            <input type="range" min="600" max="900" value="800"><span class="pr-num">800V</span>
+          </div>
+          <div class="param-row"><span class="pr-label">过温阈值</span>
+            <input type="range" min="60" max="120" value="90"><span class="pr-num">90°C</span>
+          </div>
+          <div class="param-row"><span class="pr-label">失速保护</span>
+            <div class="toggle on"></div>
+          </div>
+          <div class="param-row"><span class="pr-label">缺相检测</span>
+            <div class="toggle on"></div>
+          </div>
+        </div>
+        <div class="param-section">
+          <h3>通信 / Communication</h3>
+          <div class="param-row"><span class="pr-label">CAN 波特率</span>
+            <select><option>250K</option><option selected>500K</option><option>1M</option></select>
+          </div>
+          <div class="param-row"><span class="pr-label">CAN 节点</span>
+            <input type="range" min="1" max="127" value="3"><span class="pr-num">Node 3</span>
+          </div>
+          <div class="param-row"><span class="pr-label">RS485</span>
+            <select><option selected>Modbus RTU</option><option>Custom</option></select>
+          </div>
+          <div class="param-row"><span class="pr-label">心跳间隔</span>
+            <input type="range" min="100" max="5000" value="1000"><span class="pr-num">1.0s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-area" id="screen-2">
+      <div class="alarm-screen">
+        <div class="alarm-summary">
+          <div class="summary-card">
+            <div class="status-dot" style="background:var(--critical-red);width:12px;height:12px;"></div>
+            <span class="sc-count" style="color:var(--critical-red);">2</span>
+            <span class="sc-label">严重</span>
+          </div>
+          <div class="summary-card">
+            <div class="status-dot" style="background:var(--alert-amber);width:12px;height:12px;"></div>
+            <span class="sc-count" style="color:var(--alert-amber);">3</span>
+            <span class="sc-label">警告</span>
+          </div>
+          <div class="summary-card">
+            <div class="status-dot" style="background:var(--status-green);width:12px;height:12px;"></div>
+            <span class="sc-count" style="color:var(--status-green);">12</span>
+            <span class="sc-label">正常</span>
+          </div>
+        </div>
+        <div class="alarm-list">
+          <div class="alarm-header"><span style="width:8px;margin-right:10px;"></span><span style="width:80px;">时间</span><span style="flex:1;">描述</span><span style="width:50px;">操作</span></div>
+          <div class="alarm-item"><div class="al-severity" style="background:var(--critical-red);"></div><span class="al-time">14:22:15</span><span class="al-text">电机过流 152% (阈值 150%)</span><span class="al-ack"><button class="ack-btn">确认</button></span></div>
+          <div class="alarm-item"><div class="al-severity" style="background:var(--critical-red);"></div><span class="al-time">13:05:42</span><span class="al-text">母线过压 815V (阈值 800V)</span><span class="al-ack"><button class="ack-btn">确认</button></span></div>
+          <div class="alarm-item"><div class="al-severity" style="background:var(--alert-amber);"></div><span class="al-time">12:30:18</span><span class="al-text">电机温度偏高 85°C</span><span class="al-ack"><button class="ack-btn">确认</button></span></div>
+          <div class="alarm-item"><div class="al-severity" style="background:var(--alert-amber);"></div><span class="al-time">11:15:33</span><span class="al-text">CAN 通信延迟 15ms</span><span class="al-ack"><button class="ack-btn">确认</button></span></div>
+          <div class="alarm-item"><div class="al-severity" style="background:var(--alert-amber);"></div><span class="al-time">09:00:07</span><span class="al-text">RS485 未连接</span><span class="al-ack"><button class="ack-btn">确认</button></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchScreen(n) {
+  document.querySelectorAll('.screen-area').forEach((s,i)=>s.classList.toggle('active',i===n));
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',i===n));
+}
+</script>
+</body>
+</html>

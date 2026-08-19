@@ -1,0 +1,117 @@
+# html2eez IR 格式（v1）
+
+IR 是 LVGL 原生的界面描述 JSON，`ir2eez.py` 把它编译成 EEZ Studio `.eez-project`。
+AI / 人只写语义：**不写 objID、不写连线、不写节点坐标**——编译器负责生成并校验。
+
+```
+python ir2eez.py <input.ir.json> -o <output.eez-project>
+```
+
+## 顶层结构
+
+```jsonc
+{
+  "project":   { "name", "width": 1024, "height": 600, "font": "myfont_32" },
+  "variables": [ { "name", "type", "default", "native": true } ],
+  "widgets":   { "NavBar": { ...widget 定义，同普通 widget 节点... } },
+  "screens":   [ { "name", "children": [...] } ],
+  "actions":   [ { "name", "steps": [...] } ]   # 无 steps = native 动作（固件在 action.h 实现回调）
+}
+```
+
+## widget 节点（树）
+
+| 字段 | 说明 |
+|---|---|
+| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` |
+| `widget` | user widget 实例：`{"widget": "NavBar", "x": 0, "y": 0}`（此时不用 type，不能带 children） |
+| `id` | → EEZ identifier，供 C 代码 / LVGL action 引用 |
+| `x` `y` `w` `h` | 显式坐标尺寸；缺省时按布局规则推导。**坐标一律相对父容器**（LVGL 语义，无全局坐标）：user widget 的 children 坐标相对 widget 自身（如 NavBar 宽 800 时，右端 LED 的 x 按 800 算，不按屏幕宽算）；实例换位置/换屏幕，内容整体跟随 |
+| `text` | label/button/checkbox/textarea 的文字 |
+| `bind` | 绑定全局变量名（按类型映射属性，见下表）；未声明的变量自动声明 |
+| `align` | label 专属：`left`/`center`/`right`/`auto` 文字对齐（编译为 text_align；数值/单位等已居中摆放的 label 用 `center`）。注意与容器 flex 的 align 同名不同义 |
+| `preview` | 绑定变量时 EEZ 画布上的预览值 |
+| `font` | 字体名（fonts/catalog.json 中的名字，如 `myfont_32`、`cn_24`） |
+| `color` / `bg` | `#RRGGBB`，自动规整（去 alpha） |
+| `layout` | `row` / `col`（容器变 flex）+ `gap` `justify`(start/end/center/between/around/evenly) `align`(start/end/center)。**注意：user widget 定义里不要用 flex**（子元素位置会被卡住，实测），用显式 x/y 绝对坐标；flex 适合普通页面里的流式内容 |
+| `events` | `{"clicked"/"value_changed": "action名"}`，键不区分大小写；滑条/弧/开关/下拉用 `value_changed`，按钮用 `clicked` |
+| `children` | 仅 `container` 支持 |
+
+### bind 按类型绑定的属性（LED 注意）
+
+| widget | 绑定属性 | 变量类型 |
+|---|---|---|
+| label / textarea | text | string |
+| bar / slider / arc | value | integer |
+| **led** | **brightness (0-255)** | integer |
+| switch / checkbox | checkedState | boolean |
+
+**LED 的 `color` 只能是字面量**（EEZ 限制）；用 brightness 表达状态：
+固件里 `set_var_led_wifi(255)` 点亮 / `set_var_led_bt(80)` 变暗，
+所有页面实例化的 NavBar 里的 LED 会随 tick 自动刷新（一处改，处处变）。
+
+## variables
+
+- `type`: `integer` `float` `double` `boolean` `string`
+- `native: true`（默认）→ 生成 `get_var_xxx()` / `set_var_xxx()` extern 声明，**变量本体在固件 C 里实现**
+- string 的 default 直接写 `"Home"`（编译成 EEZ 表达式 `"\"Home\""`）
+- 被 `bind` 引用但未声明的变量自动按上表推断声明
+
+## actions（EEZ Flow 生成）
+
+`steps` 是线性序列，编译成 `Start → 节点1 → 节点2 → …` 的 flow（自动布局）：
+
+```jsonc
+{ "name": "nav_home", "steps": [
+    { "op": "lvgl", "action": "changeScreen", "screen": "home",
+      "fade": "FADE_IN", "speed": 200, "delay": 0, "useStack": false },
+    { "op": "set", "variable": "page_title", "value": "\"Home\"" },   // value 是 EEZ 表达式，字符串要带引号
+    { "op": "delay", "ms": 200 },
+    { "op": "call", "action": "另一个action名" }
+] }
+```
+
+- 无 `steps` 的 action → `native` 空壳（固件 C 实现，如 `sys_reboot`）
+- 事件引用了未定义的 action → 警告 + 自动生成 native 空壳（不报错）
+- 目前 lvgl op 只实现 `changeScreen`，其余（labelSetText / animX / objAddState… 70+ 个）待扩展
+
+## 结构规范（必须遵守）
+
+1. **相同功能的组件组成 panel**：功能内聚的组件包进一个 panel（如：一个通道的 canvas + 通道号/电极/数值
+   三个 label = 一个通道 panel），再由大 panel 包同级别的组（如 4 个通道 panel 组成波形区 panel）。
+   层级即语义，方便 EEZ 里浏览和固件里定位
+2. **动态文本 label 必须给 `id`**：凡运行时会被程序更新的 label（数值、状态、计数），都要有语义化
+   identifier（如 `ch1_uv`、`file_page_info`、`ota_pct_label`），否则固件无法按名字找到它；
+   已绑定变量的 label（bind）由变量驱动，可不加 id
+3. 语义化命名：`canvas_ch1`、`ch_group_1`、`file_item_0`、`status_battery` 这类"功能_序号"风格
+
+## 编译器内置的 EEZ 约束（AI 不用管）
+
+- objID 全部自动生成并查重；flow 连线 source/target/input/output 自动生成并校验
+- user widget 页必须显式 `isUsedAsUserWidget: true`，且**没有根 widget**：子组件直接平铺在页面
+  components 里，坐标以 widget 本身为基准（Page.lvglCreate else 分支官方支持）。
+  **不要加 ScreenWidget 根**（预览路径 Screen.tsx 无条件 createScreen，嵌在实例下渲染错位）
+  **也不要加 Panel 等中间容器层**（同样引入原点偏移）。def 级 bg 由编译器自动转成
+  第一个全尺寸背景容器兄弟（后画的组件在其上层）。缺 isUsedAsUserWidget 标志时
+  EEZ 报 "not an user widget page" 和"尺寸与显示器不符"（两处检查都看这个标志）
+- arc 六个角度字段 + preview 镜像字段必填，缺一 EEZ 报 "must be an integer"
+- flex 必须 `layout:FLEX` + `flex_flow` 成对出现；flex 容器按子元素递归撑大
+- 颜色规整为 6 位 `#RRGGBB`；dropdown 展开列表用 montserrat，中文选项警告
+- dropdown 两个坑：① 高度用显式 `h`（如 26/28），不写 h 会 content 模式随字体行高撑到 30+；
+  ② 右侧箭头是硬编码 LV_SYMBOL_DOWN（U+F078），**字体必须包含该字形**否则显示方块——
+  编译字体时图标清单固定带上 0xF077-0xF078
+- LED 自动写入 shadow_width:0（EEZ 主题默认 12，形成光晕）
+- 容器（container）自动显式清零 padding 四边 + border_width：LVGL 默认主题给普通 lv_obj
+  加 card 样式（pad_all≈16-24px + 边框 2px），而子组件坐标系从"内容区"（左上角+padding+边框）
+  开始——每嵌套一层未清零的容器，子树整体偏移 ~18-26px。清零后嵌套安全
+- LED color 仅字面量；checkbox 必带 text/textType/useStaticText + content 自适应
+
+## 已知边界
+
+- **标识符作用域（易踩）**：user widget 页里的组件只在**本页 flow** 可见——组件内部交互
+  （如导航按钮高亮联动）必须走页面级 flow（widget 定义里的 `"flow": [{"when": {"id","event"}, "steps"}]`，
+  编译成 handlerType=flow + 事件引脚连线）；顶层 action 只能引用**普通页面**上的组件 id。
+  违反时 EEZ 检查报 `"Object": "xxx" not found`
+- flow 只有线性 steps，无分支/循环（if/loop 待加：IsTrue/Loop 组件 + 多引脚连线）
+- image 引用的位图需在 EEZ 里手动导入（bitmaps 段未实现）
+- user widget 实例暂不支持传参（EEZ 的 userPropertyValues 需要 flowSupport，工程已开启，IR 层面待加）
