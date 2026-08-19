@@ -80,9 +80,9 @@ The example fonts are regenerated from [Source Han Sans](https://github.com/adob
 
 ## License
 
-- This repo: **MIT** (MCP server, IR compiler, skill, example). It talks to EEZ Studio over a local protocol and contains no EEZ Studio code.
-- The patched EEZ Studio fork it requires is GPL-3.0 (as upstream).
-- Fonts: Source Han Sans subsets + FontAwesome (OFL / CC BY 4.0) — see `font/fontawesome/`.
+- This repo: **GPL-3.0** — in the spirit of the EEZ Studio ecosystem it builds on. Note the tool's *output* (generated `.eez-project`, `action.h`) is yours, not GPL-covered — same as GCC output; firmware built with it is unaffected.
+- The patched EEZ Studio fork it requires is GPL-3.0 (as upstream eez-open/studio).
+- Fonts keep their own licenses: Source Han Sans subsets + FontAwesome (OFL / CC BY 4.0) — see `font/fontawesome/`.
 
 ## Status
 
