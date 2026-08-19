@@ -1,89 +1,110 @@
 # eez-studio-mcp
 
-**Turn EEZ Studio into an AI-drivable LVGL UI editor.** An MCP (Model Context Protocol) server + AI skill that lets Claude / Cursor / ZCode / DSH or any MCP client read and edit LVGL projects inside EEZ Studio — widget by widget, style by style, with screenshots, live checking, a simulator and even input injection.
+**Turn EEZ Studio into an AI-drivable LVGL UI editor.**
 
-把 EEZ Studio 变成 AI 可操控的 LVGL 界面编辑器：MCP 服务器 + AI 技能，任何 MCP 客户端都能逐部件读写 EEZ Studio 里的 LVGL 工程——截图自查、实时检查、模拟器、连点击注入都有。
+An MCP (Model Context Protocol) server + AI skill + IR compiler that lets Claude, Cursor, ZCode, DSH or any MCP client read and edit LVGL projects *inside* EEZ Studio — widget by widget, style by style — with screenshots, live checking, a wasm simulator, and even input injection.
 
+[中文文档 (Chinese)](README.zh-CN.md) · [Patched EEZ Studio](https://github.com/IWILLTBEST/studio) (required runtime)
+
+![architecture](docs/img/architecture.svg)
+
+## Screenshots
+
+All three screens below were generated from the IR compiler (`examples/motor`) and captured through the MCP `screenshot` tool — no manual touch:
+
+| Overview | Params | Alarms |
+|:---:|:---:|:---:|
+| ![overview](docs/img/motor-overview.png) | ![params](docs/img/motor-params.png) | ![alarms](docs/img/motor-alarms.png) |
+
+And a **per-widget close-up** (`screenshot_object` returns just one widget — handy for AI self-verification):
+
+<p><img src="docs/img/widget-closeup.png" width="220" alt="widget closeup"></p>
+
+## What can the AI do?
+
+| Domain | Tools | Highlights |
+|---|---|---|
+| **Widget editing** | `list_objects` `get_object` `update_object` `create_widget` `delete_object` `create_screen` `undo` `redo` | Address widgets by path **or stable objID**; every edit is an undoable command and auto-saves |
+| **Styles & themes** | `list_styles` `update_style` `create_style` `delete_style` `set_theme_color` `add_color` `set_preview_theme` | Edit `definition[part][state]` props; switch theme preview and re-screenshot |
+| **Visual loop** | `screenshot` `screenshot_object` `goto_object` `get_selection` | Page PNG, single-widget close-up, locate an object, read what the *user* selected |
+| **Diagnostics** | `read_output` `check` `build_project` | Read Checks/Output panels; run full check or C-source build |
+| **Runtime & input** | `debug_start/stop/control/status` `read_variable` `write_variable` `send_input` | Drive the LVGL wasm simulator: pause/step, read/write variables, **inject clicks & swipes** (page navigation verified end-to-end) |
+| **Project files** | `read_project_json` `write_project_json` `patch_project_json` | RFC 7396 merge-patch and RFC 6902 JSON-Patch for surgical bulk edits |
+| **Multi-project** | `list_projects` `select_project` `open_project` | Tab-level project switching, dead-tab recovery |
+| **Assets** | `list_assets` `add_font` `add_image` | TTF→LVGL font via the built-in lv_font_conv pipeline (ranges + CJK symbols), images with auto-copy |
+| **IR pipeline** | `read_ir` `write_ir` `compile` `reload` `navigate` `ping` | The original generate-from-IR loop |
+
+Protocol extras: **live resources** (`eez://checks`, `eez://debug`, `eez://state`) with change push (~0.4 s), and **progress notifications** for long operations (`check`, `build_project`, `debug_start`, `add_font`, …).
+
+## The IR compiler & firmware contract
+
+`ir2eez.py` compiles a declarative JSON IR into a `.eez-project`, and — when the IR declares native actions — generates an **`action.h`** firmware contract:
+
+```c
+// action.h — auto-generated
+void on_speed(int32_t value);   // slider/arc: current value
+void on_fwd(int32_t value);     // switch: 0/1
+void on_poles(int32_t value);   // dropdown: option index
+void ack_alarm(void);           // click: no args
 ```
-MCP 客户端 (Claude/Cursor/ZCode/DSH)
-      │ MCP (stdio)
-eez_mcp_server.py  ──45 个工具──
-      │ HTTP 127.0.0.1:17620
-EEZ Studio (patched fork, GPL-3.0)  ← 内置 ai-agent 桥
-      │
-LVGL 工程 (.eez-project / IR JSON)
-```
 
-## Highlights
-
-- **Widget-level editing** — `list_objects` / `get_object` / `update_object` / `create_widget` / `delete_object`, addressed by path **or stable objID**, all undoable
-- **Styles & themes** — create/update LVGL styles, theme colors, theme preview switching
-- **Visual loop** — page screenshots, **per-widget close-up screenshots** (`screenshot_object`), pixel-accurate verification
-- **Diagnostics** — read Checks/Output panels, run full `check` / `build_project` (generates C sources)
-- **Runtime debugging** — start/stop the LVGL wasm simulator, pause/step, read/write variables, logs
-- **Input injection** — `send_input` (click / swipe) drives the running simulator; page navigation verified end-to-end
-- **Assets** — `add_font` (built-in lv_font_conv pipeline), `add_image`
-- **Multi-project** — list / switch / open project tabs
-- **Live resources** — subscribe to `eez://checks`, `eez://debug`, `eez://state`; get pushed on change. Progress notifications for long operations
-- **IR compiler** — `ir2eez.py` compiles a declarative JSON IR into a `.eez-project`, and generates an **`action.h`** native-action contract for firmware porting
-
-## Requirements
-
-- Python 3.10+ with `pip install mcp httpx`
-- **EEZ Studio with the ai-agent bridge** — use the patched fork: https://github.com/IWILLTBEST/studio (GPL-3.0, fork of [eez-open/studio](https://github.com/eez-open/studio) v0.30.0). Start it (`npm start`); the bridge listens on `127.0.0.1:17620`
-
-## Quickstart
-
-1. Start the patched EEZ Studio, open (or create) a project.
-2. Add the MCP server to your client. Claude Desktop example (see `claude_desktop_config.example.json`):
-
-```json
-{
-  "mcpServers": {
-    "eez-studio": {
-      "command": "python",
-      "args": ["<repo>/eez_mcp_server.py"]
-    }
-  }
-}
-```
-
-3. Talk to it: *"list the screens"*, *"make the navbar indicator green"*, *"add a label with the new font and screenshot it"*.
-
-4. Install the skill (optional, for ZCode-style agents): copy `SKILL.md` into your skills directory. It encodes the accumulated rules: layout formulas, `text_align` vs `align` pitfalls, font pipeline, native-action contract, and a complete worked example.
-
-## Example: motor controller UI
+The UI binds global variables *down* (firmware changes a variable → every bound widget refreshes each tick) and fires native actions *up* (user drags a slider → your C callback runs). Implement the callbacks, include the header, and the port is done. Tool output is yours — not GPL-covered (same as GCC output).
 
 ```bash
-# compile the IR into a .eez-project + action.h (run from repo root)
+git clone https://github.com/IWILLTBEST/eez-studio-mcp && cd eez-studio-mcp
+pip install mcp httpx
 python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
+# → motor-demo.eez-project + action.h (12 native actions)
 ```
 
-- `examples/motor/motor_ui.html` — design mockup
-- `examples/motor/motor.ir.json` — declarative IR: 3 screens, 13 bound variables, 3 navigation flow actions, 12 native actions
-- `action.h` — generated firmware contract: `void on_speed(int32_t value);` … implement these and the port is done
+## Setup
 
-The example fonts are regenerated from [Source Han Sans](https://github.com/adobe-fonts/source-han-sans) (OFL) subsets + FontAwesome icons — fully redistributable. Regenerate/tune via `font_tool.py`.
+1. **EEZ Studio with the bridge** — clone and run the patched fork (GPL-3.0, based on [eez-open/studio](https://github.com/eez-open/studio) v0.30.0):
 
-## Tool map (45)
+   ```bash
+   git clone https://github.com/IWILLTBEST/studio
+   cd studio && npm install && npm start
+   ```
 
-| Domain | Tools |
+   The bridge listens on `127.0.0.1:17620`. Open or create a project.
+
+2. **Register the MCP server** with your client (see `claude_desktop_config.example.json`):
+
+   ```json
+   {
+     "mcpServers": {
+       "eez-studio": { "command": "python", "args": ["<repo>/eez_mcp_server.py"] }
+     }
+   }
+   ```
+
+3. **Talk to it** — e.g. *“list the screens”*, *“change the navbar indicator to green and show me a screenshot”*, *“drag the speed slider and tell me which page the simulator is on”*.
+
+4. **(Optional) install the skill** — copy `SKILL.md` into your agent's skills directory. It encodes the accumulated engineering rules: manual-centering formulas, the `text_align` vs `align` pitfall, the font pipeline, the native-action contract, plus the full motor case study.
+
+## The motor example
+
+| Layer | Contents |
 |---|---|
-| IR pipeline | read_ir, write_ir, compile, reload, navigate, screenshot, ping |
-| Objects | list_objects, get_object, update_object, create_widget, delete_object, create_screen, undo, redo, goto_object, get_selection |
-| Styles/themes | list_styles, update_style, create_style, delete_style, set_theme_color, add_color, set_preview_theme |
-| Project file | read_project_json, write_project_json, patch_project_json (RFC 7396 / 6902) |
-| Multi-project | list_projects, select_project, open_project |
-| Diagnostics | read_output, check, build_project |
-| Debug & input | debug_start/stop/control/status, read_variable, write_variable, send_input |
-| Assets & misc | list_assets, add_font, add_image, screenshot_object, create_project |
+| Data down | 13 global variables → metric cards, gauges, LEDs, switches, clock |
+| Navigation | 3 flow actions (`nav_overview/params/alarms` → changeScreen) |
+| Input up | 12 native actions wired at 24 points (sliders, arcs, switches, dropdowns, ack buttons) |
+
+Layout: manual coordinates everywhere (`x = center - w/2`), value labels in fixed-width boxes with centered text, every card wrapped in a panel. The mockup (`motor_ui.html`), the IR, and the generated project stay pixel-faithful — verified down to ±2 px.
+
+## Notes & gotchas
+
+- The bridge is localhost-only by design.
+- Corporate proxies/VPNs: the server pins `trust_env=False` for its loopback calls — a system proxy can otherwise add ~1.7 s per call and stall progress notifications.
+- Requires Python 3.10+ and the patched Studio; the MCP layer itself is pure Python (tested on Windows).
+- Fonts in `fonts/` are Source Han Sans (OFL) subsets + FontAwesome (OFL/CC-BY 4.0) — regenerable via `font_tool.py`.
 
 ## License
 
-- This repo: **GPL-3.0** — in the spirit of the EEZ Studio ecosystem it builds on. Note the tool's *output* (generated `.eez-project`, `action.h`) is yours, not GPL-covered — same as GCC output; firmware built with it is unaffected.
-- The patched EEZ Studio fork it requires is GPL-3.0 (as upstream eez-open/studio).
-- Fonts keep their own licenses: Source Han Sans subsets + FontAwesome (OFL / CC BY 4.0) — see `font/fontawesome/`.
+**GPL-3.0** — in the spirit of the EEZ Studio ecosystem this builds on. Generated artifacts (`.eez-project`, `action.h`) are your own work and not covered by the GPL. Fonts keep their upstream licenses (OFL / CC-BY 4.0).
 
-## Status
+## Acknowledgments
 
-Works on Windows with EEZ Studio v0.30.0 fork. The MCP layer is pure Python and transport-agnostic; the bridge lives in the Studio fork. Contributions welcome.
+- [eez-open/studio](https://github.com/eez-open/studio) — EEZ Studio, the foundation everything here drives
+- [LVGL](https://lvgl.io/) and [lv_font_conv](https://github.com/lvgl/lv_font_conv)
+- [Source Han Sans](https://github.com/adobe-fonts/source-han-sans) & [FontAwesome](https://fontawesome.com)
