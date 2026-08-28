@@ -1,18 +1,29 @@
 """
-ir2eez — IR(JSON) → EEZ Studio .eez-project (LVGL v9) 编译器
+ir2eez — IR(JSON) → EEZ Studio .eez-project (LVGL v9) compiler.
 
-IR 是 LVGL 原生的界面描述（不含 HTML/CSS 语义），四个顶层段：
-    project   工程元信息（分辨率等）
-    variables 全局变量声明（widget 用 bind 引用，未声明的自动推断）
-    widgets   可复用 user widget 定义（如顶部导航栏，页面里实例化）
-    screens   页面（widget 树，可实例化 widgets 里定义的组件）
-    actions   动作：steps 线性序列 → 编译成 EEZ Flow（Start→节点→连线+自动布局），
-              无 steps 的 action 生成 native 空壳（由固件 C 实现）
+IR is a LVGL-native UI description (no HTML/CSS semantics) with five top-level
+sections:
+    project   project metadata (resolution, etc.)
+    variables global variable declarations (referenced by widgets via bind;
+              undeclared ones are auto-inferred)
+    widgets   reusable user widget definitions (e.g. a top nav bar, instantiated
+              inside screens)
+    screens   pages (widget trees; may instantiate components defined in widgets)
+    actions   actions: a linear steps sequence → compiled into EEZ Flow
+              (Start→nodes→lines + auto layout); actions without steps become
+              native stubs (implemented in firmware C)
 
-AI/人只写语义：无 objID、无连线、无节点坐标，全部由本编译器生成并校验。
+AI/humans only write semantics: no objID, no connection lines, no node
+coordinates — everything is generated and validated by this compiler.
 
-用法：
+Usage:
     python ir2eez.py navbar_demo.ir.json -o out_ir.eez-project
+
+ir2eez — IR(JSON) → EEZ Studio .eez-project (LVGL v9) 编译器。
+IR 是 LVGL 原生界面描述：project 工程元信息、variables 全局变量声明、
+widgets 可复用 user widget、screens 页面、actions 动作（steps → EEZ Flow，
+无 steps 生成 native 空壳由固件 C 实现）。
+AI/人只写语义：无 objID、无连线、无节点坐标，全部由本编译器生成并校验。
 """
 from __future__ import annotations
 
@@ -26,13 +37,13 @@ from typing import Any
 
 from generator import DEFAULT_FLAGS, load_font_catalog, normalize_color, oid
 
-# Windows 控制台默认 GBK，强制 UTF-8
+# Windows console defaults to GBK; force UTF-8. Windows 控制台默认 GBK，强制 UTF-8。
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-# ---------- 校验 ----------
+# ---------- Validation 校验 ----------
 
 class IRError(Exception):
     pass
@@ -46,9 +57,9 @@ def need_int(path: str, val: Any, default: int | None = None) -> int:
     if val is None:
         if default is not None:
             return default
-        fail(path, "缺少整数值")
+        fail(path, "missing integer value")
     if isinstance(val, bool) or not isinstance(val, int):
-        fail(path, f"应为整数，得到 {val!r}")
+        fail(path, f"expected integer, got {val!r}")
     return val
 
 
@@ -56,16 +67,16 @@ def need_str(path: str, val: Any, default: str | None = None) -> str:
     if val is None:
         if default is not None:
             return default
-        fail(path, "缺少字符串值")
+        fail(path, "missing string value")
     if not isinstance(val, str):
-        fail(path, f"应为字符串，得到 {val!r}")
+        fail(path, f"expected string, got {val!r}")
     return val
 
 
-# ---------- 尺寸估算（用于 flex 容器自动撑大 & 默认尺寸） ----------
+# ---------- Size estimation (for flex auto-grow & default sizes) 尺寸估算（flex 容器自动撑大 & 默认尺寸） ----------
 
 def estimate_text_width(text: str, font_size: int) -> int:
-    """中文≈1em，ASCII≈0.6em"""
+    """CJK chars ≈ 1em, ASCII ≈ 0.6em. 中文≈1em，ASCII≈0.6em。"""
     w = 0
     for ch in text:
         w += font_size if ord(ch) > 0x2E80 else int(font_size * 0.6)
@@ -73,14 +84,14 @@ def estimate_text_width(text: str, font_size: int) -> int:
 
 
 def font_size_of(font_name: str) -> int:
-    """'source_16' → 16，解析失败按 16"""
+    """'source_16' → 16; falls back to 16 on parse failure. 'source_16' → 16，解析失败按 16。"""
     try:
         return int(font_name.rsplit("_", 1)[-1])
     except (ValueError, IndexError):
         return 16
 
 
-# 类型默认尺寸：w, h（flex 子元素缺省 / 估父容器大小时用）
+# Default size per type: (w, h); used for flex child defaults & parent size estimation. 类型默认尺寸：w, h（flex 子元素缺省 / 估父容器大小时用）
 DEFAULT_SIZE: dict[str, tuple[int, int]] = {
     "button": (120, 40),
     "label": (80, 24),
@@ -100,9 +111,9 @@ DEFAULT_SIZE: dict[str, tuple[int, int]] = {
     "canvas": (180, 100),
 }
 
-# bind 到不同 widget 时绑定的属性 & 推断变量类型
+# Property bound per widget type & inferred variable type. bind 到不同 widget 时绑定的属性 & 推断变量类型
 BIND_TARGET: dict[str, tuple[str, str, str]] = {
-    # type → (EEZ 属性名, 变量类型, 默认值)
+    # type → (EEZ property name, variable type, default value)
     "label": ("text", "string", '""'),
     "textarea": ("text", "string", '""'),
     "bar": ("value", "integer", "0"),
@@ -114,9 +125,11 @@ BIND_TARGET: dict[str, tuple[str, str, str]] = {
 }
 
 
-# identifier 类型前缀（EEZ 对象树按 identifier 显示，带前缀一眼看出对象类型）。
-# 必须全小写：EEZ 构建把标识符按 UnderscoreLowerCase 存储、动作按原名 indexOf
-# 查找，带大写会 "Widget index not found"（C 变量也是 objects.panel_xxx 小写）
+# Type prefixes for identifiers (the EEZ object tree shows identifiers; the prefix
+# makes the object type obvious at a glance). Must be all lowercase: EEZ stores
+# identifiers as UnderscoreLowerCase and looks up actions by exact-name indexOf;
+# uppercase causes "Widget index not found" (C vars are also lowercase, e.g. objects.panel_xxx).
+# identifier 类型前缀：必须全小写，带大写会 "Widget index not found"。
 _TYPE_PREFIX = {
     "LVGLLabelWidget": "label_",
     "LVGLButtonWidget": "button_",
@@ -139,24 +152,24 @@ _TYPE_PREFIX = {
 }
 
 
-# ---------- 变量收集 ----------
+# ---------- Variable collection 变量收集 ----------
 
 class VarCollector:
     def __init__(self, declared: list[dict[str, Any]]):
-        # declared: IR variables 段
+        # declared: the IR "variables" section. declared: IR variables 段。
         self.vars: dict[str, dict[str, Any]] = {}
         self.explicit: set[str] = set()
         for v in declared:
             name = need_str("variables[].name", v.get("name"))
             vtype = need_str("variables[].type", v.get("type"), "string")
             if vtype not in ("integer", "float", "double", "boolean", "string"):
-                fail(f"variables[{name!r}].type", f"不支持的类型 {vtype!r}")
+                fail(f"variables[{name!r}].type", f"unsupported type {vtype!r}")
             default = v.get("default")
             if default is None:
                 default = {"string": '""', "integer": "0", "float": "0",
                            "double": "0", "boolean": "false"}[vtype]
             elif vtype == "string":
-                # IR 里直接写 "Home"，编译成 EEZ 表达式 "\"Home\""
+                # IR writes plain "Home"; compiled into the EEZ expression "\"Home\"". IR 里直接写 "Home"，编译成 EEZ 表达式 "\"Home\""
                 default = json.dumps(str(default), ensure_ascii=False)
             else:
                 default = str(default).lower()
@@ -171,11 +184,12 @@ class VarCollector:
             self.explicit.add(name)
 
     def infer(self, name: str, vtype: str, default: str) -> None:
-        """bind 引用了未声明的变量 → 自动声明"""
+        """bind references an undeclared variable → declare it automatically. bind 引用了未声明的变量 → 自动声明。"""
         if name in self.vars:
             if name not in self.explicit and self.vars[name]["type"] != vtype:
-                print(f"⚠ 变量 {name} 类型不一致：先按 {self.vars[name]['type']} 推断，"
-                      f"后又按 {vtype} 使用，以先者为准", file=sys.stderr)
+                print(f"⚠ Inconsistent type for variable {name}: first inferred as "
+                      f"{self.vars[name]['type']}, then used as {vtype}; keeping the first",
+                      file=sys.stderr)
             return
         self.vars[name] = {
             "objID": oid(),
@@ -187,7 +201,7 @@ class VarCollector:
         }
 
 
-# ---------- widget 构造 ----------
+# ---------- Widget construction widget 构造 ----------
 
 FLEX_FLOW = {"row": "ROW", "col": "COLUMN", "column": "COLUMN",
              "row-wrap": "ROW_WRAP", "row-reverse": "ROW_REVERSE",
@@ -209,21 +223,22 @@ class Compiler:
         self.widget_defs: dict[str, dict[str, Any]] = {}
         for name, w in (ir.get("widgets") or {}).items():
             if not isinstance(w, dict):
-                fail(f"widgets[{name!r}]", "应为对象")
+                fail(f"widgets[{name!r}]", "expected object")
             self.widget_defs[name] = w
-        self.known_ids: set[str] = set()   # 所有完整 identifier（lvgl 动作目标校验用）
-        # IR 简短 id → 带类型前缀的完整 identifier（Label_xxx / Panel_xxx / Button_xxx…），
-        # flow 的 target 写简短 id，编译时自动映射
+        self.known_ids: set[str] = set()   # all full identifiers (for LVGL action target validation) 所有完整 identifier（lvgl 动作目标校验用）
+        # IR short id → full identifier with type prefix (label_xxx / panel_xxx / button_xxx, ...).
+        # Flow targets may use short ids; they are mapped automatically at compile time.
+        # flow 的 target 写简短 id，编译时自动映射到完整 identifier。
         self.id_map: dict[str, str] = {}
-        # action 名集合（显式定义 + 事件引用）
+        # Action name set (explicitly defined + referenced by events). action 名集合（显式定义 + 事件引用）。
         self.actions_ir: list[dict[str, Any]] = ir.get("actions") or []
         self.action_names: set[str] = set()
         for a in self.actions_ir:
             self.action_names.add(need_str("actions[].name", a.get("name")))
-        self.pending_actions: set[str] = set()   # 事件引用但未定义 → native 空壳
-        # native 动作清单（含显式无 steps 的）：name → 是否值变化类（带 value 参数）
+        self.pending_actions: set[str] = set()   # referenced by events but undefined → native stubs 事件引用但未定义 → native 空壳
+        # Native action list (incl. explicit step-less ones): name → is value-change kind (takes a value param). native 动作清单：name → 是否值变化类（带 value 参数）
         self.native_actions: dict[str, bool] = {}
-        # 每个动作被哪些事件引用（显式声明的动作也要记录，action.h 签名用）
+        # Which events reference each action (explicit ones too; used for action.h signatures). 每个动作被哪些事件引用（action.h 签名用）。
         self.action_event_kinds: dict[str, set[str]] = {}
         self.vars = VarCollector(ir.get("variables") or [])
         self.default_font = need_str("project.font", proj.get("font"), "")
@@ -232,7 +247,7 @@ class Compiler:
     def err(self, path: str, msg: str) -> None:
         self.errors.append(f"{path}: {msg}")
 
-    # ----- 公共字段 -----
+    # ----- Common fields 公共字段 -----
 
     def base(self, wtype: str, node: dict[str, Any], path: str,
              x: int, y: int, w: int, h: int) -> dict[str, Any]:
@@ -268,7 +283,7 @@ class Compiler:
             semantic = str(node["id"])
             prefix = _TYPE_PREFIX.get(wtype, "w_")
             word = prefix.rstrip("_")
-            # 语义 id 已带类型词时避免双重前缀（canvas_ch1 → canvas_ch1 而非 canvas_canvas_ch1）
+            # Avoid double prefix when the semantic id already carries the type word (canvas_ch1 stays canvas_ch1). 语义 id 已带类型词时避免双重前缀。
             full = semantic if (semantic.startswith(word + "_") or semantic == word) \
                 else prefix + semantic
             obj["identifier"] = full
@@ -280,7 +295,7 @@ class Compiler:
         if node.get("disabled"):
             init_states.append("DISABLED")
         if init_states:
-            # 初始状态（EEZ states 字段，配合 states 样式 / objAddState 动作）
+            # Initial states (EEZ "states" field; pairs with state styles / objAddState actions). 初始状态（EEZ states 字段，配合 states 样式 / objAddState 动作）。
             obj["states"] = "|".join(init_states)
         return obj
 
@@ -289,9 +304,9 @@ class Compiler:
         for evt, act in (node.get("events") or {}).items():
             evt_u = str(evt).upper()
             if not isinstance(act, str):
-                self.err(f"{path}.events[{evt!r}]", "值应为 action 名字符串")
+                self.err(f"{path}.events[{evt!r}]", "value must be an action name string")
                 continue
-            # 记录事件种类（action.h 签名推导：VALUE_CHANGED 触发的带 value 参数）
+            # Record event kinds (for action.h signature inference: VALUE_CHANGED-triggered ones take a value param). 记录事件种类（action.h 签名推导用）。
             self.action_event_kinds.setdefault(act, set()).add(evt_u)
             if act not in self.action_names:
                 self.pending_actions.add(act)
@@ -307,9 +322,12 @@ class Compiler:
     def styles_for(self, node: dict[str, Any], path: str,
                    extra: dict[str, Any] | None = None,
                    use_default_font: bool = True) -> dict[str, Any]:
-        """font/color/bg/radius → localStyles.definition MAIN.DEFAULT；
-        node.states = {"CHECKED": {"bg": ..., "color": ...}} → MAIN.CHECKED（选中态样式，
-        配合 objAddState/objClearState 动作实现选中高亮）。"""
+        """font/color/bg/radius → localStyles.definition MAIN.DEFAULT;
+        node.states = {"CHECKED": {"bg": ..., "color": ...}} → MAIN.CHECKED (selected-state
+        style; combined with objAddState/objClearState actions for selection highlight).
+
+        font/color/bg/radius → MAIN.DEFAULT；states → MAIN.CHECKED（选中态样式，
+        配合 objAddState/objClearState 实现选中高亮）。"""
         props: dict[str, Any] = dict(extra or {})
         font = node.get("font") or (self.default_font if use_default_font else "")
         if font:
@@ -334,22 +352,22 @@ class Compiler:
             if sprops.get("radius") is not None:
                 sp["radius"] = int(sprops["radius"])
             if not sp:
-                self.err(f"{path}.states[{state!r}]", "空状态样式")
+                self.err(f"{path}.states[{state!r}]", "empty state style")
                 continue
             definition.setdefault("MAIN", {})[str(state).upper()] = sp
         if not definition:
             return {"objID": oid()}
         return {"objID": oid(), "definition": definition}
 
-    # ----- 各 widget -----
+    # ----- Per-widget builders 各 widget -----
 
     def build_widget(self, node: dict[str, Any], path: str,
                      x: int, y: int, w: int, h: int) -> dict[str, Any]:
-        # user widget 实例（{"widget": "NavBar"}，无需 type）
+        # user widget instance ({"widget": "NavBar"}; no type needed). user widget 实例（无需 type）。
         if "widget" in node:
             ref = need_str(f"{path}.widget", node.get("widget"))
             if ref not in self.widget_defs:
-                self.err(path, f"引用了未定义的 user widget {ref!r}")
+                self.err(path, f"references undefined user widget {ref!r}")
             d = self.widget_defs.get(ref) or {}
             obj = self.base("LVGLUserWidgetWidget", node, path, x, y,
                             need_int(f"{path}.w", node.get("w"),
@@ -358,28 +376,28 @@ class Compiler:
                                      need_int(f"widgets[{ref!r}].height", d.get("height"), 50)))
             obj["userWidgetPageName"] = ref
             if node.get("children"):
-                self.err(path, "user widget 实例不能带 children")
+                self.err(path, "user widget instance cannot have children")
             return obj
 
         wtype = need_str(f"{path}.type", node.get("type"))
         if wtype not in WIDGET_TYPES:
-            self.err(f"{path}.type", f"未知 widget 类型 {wtype!r}")
+            self.err(f"{path}.type", f"unknown widget type {wtype!r}")
             wtype = "label"
 
         builder = getattr(self, f"_build_{wtype}", None)
         if builder is None:
-            self.err(f"{path}.type", f"widget 类型 {wtype!r} 暂不支持")
+            self.err(f"{path}.type", f"widget type {wtype!r} not yet supported")
             wtype = "label"
             builder = self._build_label
         return builder(node, path, x, y, w, h)
 
     def _bind(self, node: dict[str, Any], path: str, wtype: str) -> tuple[str, str] | None:
-        """返回 (属性名, 变量名)；无 bind 返回 None"""
+        """Returns (property name, variable name); None if no bind. 返回 (属性名, 变量名)；无 bind 返回 None。"""
         var = node.get("bind")
         if var is None:
             return None
         if not isinstance(var, str) or not var:
-            self.err(f"{path}.bind", "应为变量名字符串")
+            self.err(f"{path}.bind", "expected variable name string")
             return None
         prop, vtype, default = BIND_TARGET[wtype]
         self.vars.infer(var, vtype, default)
@@ -397,32 +415,34 @@ class Compiler:
             obj["text"] = need_str(f"{p}.text", n.get("text"), "Label")
             obj["textType"] = "literal"
             text = str(obj["text"])
-        # 高度兜底：不小于 字体行高×行数（16px 字体行高≈20，h=14 会裁字）
+        # Height guard: never smaller than font line-height × line count (16px font ≈ line-height 20; h=14 clips). 高度兜底：不小于字体行高×行数。
         font = str(n.get("font") or self.default_font or "x_16")
         line_h = int(font_size_of(font) * 1.25) + 1
         need_h = (text.count("\n") + 1) * line_h
         if obj["height"] < need_h:
             obj["height"] = need_h
 
-        # 宽度兜底：按最长行估算所需宽度（中文≈字号，ASCII≈0.6×字号 + padding），
-        # 防止文字被截断/换行（AI 写 IR 时常给太窄的 w）
+        # Width guard: estimate the needed width from the longest line (CJK ≈ font size,
+        # ASCII ≈ 0.6×size + padding) to prevent truncated/wrapped text (AI often writes too-narrow w in IR).
+        # 宽度兜底：按最长行估算所需宽度，防止文字被截断/换行。
         fs = font_size_of(font)
         longest_line = max(text.split("\n"), key=len) if "\n" in text else text
         need_w = 0
         for ch in longest_line:
             need_w += fs if ord(ch) > 0x2E80 else int(fs * 0.65)
-        need_w += 16  # 左右 padding
+        need_w += 16  # left/right padding 左右 padding
         if obj["width"] < need_w:
             obj["width"] = need_w
 
-        # 不换行（文字显示不全的根源是宽度不够，现在已兜底——截断比换行好）
+        # No wrapping (width is guarded above — clipping beats wrapping). 不换行（宽度已兜底，截断比换行好）。
         obj["longMode"] = "WRAP"
         obj["recolor"] = False
-        # 文字对齐（IR: align = left/center/right/auto）：变量绑定的数值 label 是
-        # 固定宽盒子 + 估算宽度，默认左对齐会让运行时实际数字偏左——
-        # 盒子已居中摆放的数值/单位应给 align=center。
-        # 注意样式属性是 text_align（只对齐文字行）——align 是对象对齐
-        # （ALIGN_CENTER 会把对象挪到父容器中心，left/top 变成中心偏移）
+        # Text alignment (IR: align = left/center/right/auto). A variable-bound numeric label
+        # is a fixed-width box with an estimated width; default left alignment makes the
+        # runtime digits hug the left — centered boxes should use align=center.
+        # Note the style property is text_align (aligns text lines only); align is object
+        # alignment (ALIGN_CENTER moves the object to the parent center; left/top become offsets).
+        # 文字对齐：注意 text_align（对齐文字）与 align（对象对齐）是两个不同的属性。
         align = str(n.get("align", "")).strip().lower()
         if align in ("left", "center", "right", "auto"):
             obj["localStyles"].setdefault("definition", {}).setdefault(
@@ -433,16 +453,17 @@ class Compiler:
     def _build_button(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLButtonWidget", n, p, x, y, w, h)
         obj["clickableFlag"] = True
-        # 默认卡片底色+圆角：不写 bg 的话 LVGL 主题默认按钮底色（灰）会透出来
+        # Default card bg + radius: without bg, the LVGL theme's default (grey) button color shows through. 默认卡片底色+圆角。
         obj["localStyles"] = self.styles_for(n, p, extra={"radius": 6, "bg_color": "#1C2333"})
         text = need_str(f"{p}.text", n.get("text"), "Button")
-        # 子 label 不写自己的 text_color —— 继承按钮的（LVGL 继承属性），
-        # 这样按钮 CHECKED/PRESSED 状态的文字色切换才能作用到文字上
+        # The child label sets no text_color of its own — it inherits the button's
+        # (LVGL inherited property) so CHECKED/PRESSED text-color switches apply to it.
+        # 子 label 不写 text_color，继承按钮的，状态变色才能作用到文字。
         lbl = self._build_label({"text": text, "font": n.get("font")},
                                 f"{p}.label", 0, 0, 80, 32)
         lbl["widthUnit"] = "content"
         lbl["heightUnit"] = "content"
-        # 居中于按钮
+        # Center within the button. 居中于按钮。
         d = lbl["localStyles"].setdefault("definition", {})
         d.setdefault("MAIN", {}).setdefault("DEFAULT", {})["align"] = "CENTER"
         obj["children"].append(lbl)
@@ -478,7 +499,7 @@ class Compiler:
         obj["type"] = "LVGLSliderWidget"
         obj["clickableFlag"] = True
         obj["knob"] = ""
-        # 前缀随类型改：构造时按 bar 建的 identifier/id_map 改成 slider_
+        # Prefix follows the type: rewrite the bar-built identifier/id_map entries to slider_. 前缀随类型改成 slider_。
         ident = obj.get("identifier")
         if ident and ident.startswith("bar_"):
             semantic = ident[len("bar_"):]
@@ -514,18 +535,19 @@ class Compiler:
         obj["localStyles"] = self.styles_for(n, p)
         opts = n.get("options")
         if not isinstance(opts, list) or not all(isinstance(o, str) for o in opts):
-            self.err(f"{p}.options", "应为字符串数组")
+            self.err(f"{p}.options", "expected an array of strings")
             opts = ["Option 1", "Option 2"]
-        # 展开列表用 LV_FONT_DEFAULT（montserrat），中文会变方框 → 提示
+        # The expanded list uses LV_FONT_DEFAULT (montserrat); CJK turns into boxes → warn. 展开列表用 montserrat，中文会变方框。
         if any(ord(c) > 0x2E80 for o in opts for c in o):
-            print(f"⚠ {p}: dropdown 选项含中文，EEZ 展开列表用 montserrat 字体会显示方框", file=sys.stderr)
+            print(f"⚠ {p}: dropdown options contain CJK characters; EEZ renders the "
+                  f"expanded list with montserrat and they will show as boxes", file=sys.stderr)
         obj["options"] = "\n".join(opts)
         obj["optionsType"] = "literal"
         obj["selected"] = need_int(f"{p}.selected", n.get("selected"), 0)
         obj["selectedType"] = "literal"
         obj["direction"] = str(n.get("direction", "bottom"))
         obj["useStaticText"] = True
-        # 高度：显式 h 用 px 定高（content 模式随字体行高，16px 字体会撑到 30+）
+        # Height: an explicit h pins px (content mode follows font line-height; a 16px font grows to 30+). 高度：显式 h 用 px 定高。
         if n.get("h") is None:
             obj["heightUnit"] = "content"
         return obj
@@ -575,7 +597,7 @@ class Compiler:
             obj["valueType"] = "literal"
         obj["valueStart"] = 0
         obj["valueStartType"] = "literal"
-        # 角度字段缺一 EEZ 报 "must be an integer"（历史坑）
+        # A missing angle field makes EEZ report "must be an integer" (historical pitfall). 角度字段缺一 EEZ 报 "must be an integer"。
         obj["mode"] = str(n.get("mode", "NORMAL"))
         bg_s = need_int(f"{p}.bgStartAngle", n.get("bgStartAngle"), 135)
         bg_e = need_int(f"{p}.bgEndAngle", n.get("bgEndAngle"), 45)
@@ -594,16 +616,20 @@ class Compiler:
         return self.base("LVGLSpinnerWidget", n, p, x, y, w, h)
 
     def _build_canvas(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
-        """波形等自绘区域：lv_canvas_create，缓冲区由固件运行时填充
-        （lv_canvas_set_buffer + identifier 供代码定位）"""
+        """Custom-draw area (waveforms etc.): lv_canvas_create; the buffer is filled by
+        firmware at runtime (lv_canvas_set_buffer + identifier for code-side lookup).
+
+        波形等自绘区域：缓冲区由固件运行时填充（identifier 供代码定位）。"""
         obj = self.base("LVGLCanvasWidget", n, p, x, y, w, h)
         obj["clickableFlag"] = False
         obj["localStyles"] = self.styles_for(n, p, use_default_font=False)
         return obj
 
     def _build_line(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
-        """分割线（参考 ppa32 的 LVGLLineWidget 用法）：
-        dir="h"（默认，w 为长度）或 "v"（h 为长度），color 默认边框灰"""
+        """Divider line (see ppa32's LVGLLineWidget usage): dir="h" (default, w is the
+        length) or "v" (h is the length); color defaults to border grey.
+
+        分割线：dir="h"（w 为长度）或 "v"（h 为长度），color 默认边框灰。"""
         obj = self.base("LVGLLineWidget", n, p, x, y, w, h)
         vertical = str(n.get("dir", "h" if w >= h else "v")).lower().startswith("v")
         length = h if vertical else w
@@ -626,11 +652,11 @@ class Compiler:
 
     def _build_led(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLLedWidget", n, p, x, y, w, h)
-        # EEZ/主题默认 shadow_width=12 造成光晕，显式归零得到干净圆点
+        # EEZ/theme default shadow_width=12 causes a glow; zero it for a clean dot. 显式归零 shadow 得到干净圆点。
         obj["localStyles"] = {"objID": oid(), "definition": {"MAIN": {"DEFAULT": {
             "shadow_width": 0,
         }}}}
-        # EEZ 的 LED color 只能是字面量 #RRGGBB；能绑变量的是 brightness(0-255)
+        # EEZ LED color must be a literal #RRGGBB; only brightness (0-255) can bind a variable. color 只能字面量，brightness 可绑变量。
         obj["color"] = normalize_color(need_str(f"{p}.color", n.get("color"), "#0000FF"))
         obj["colorType"] = "literal"
         bind = self._bind(n, p, "led")
@@ -643,19 +669,26 @@ class Compiler:
 
     def _build_box(self, n: dict, p: str, x: int, y: int, w: int, h: int,
                    wtype: str) -> dict:
-        """container/panel 共用：都是 lv_obj_create，必须显式清零 padding/border——
-        LVGL 默认主题给普通 lv_obj 自动加 card 样式（pad_all≈16-24px + 边框 2px），
-        子组件坐标系从"内容区"（左上角+padding+边框）开始，每嵌套一层未清零的
-        容器子树就整体偏移 ~18-26px（EEZ 仅对 user widget 实例在 C 构建路径做
-        同样归零，见 UserWidget.tsx buildStyleIfNotDefined）"""
+        """Shared by container/panel: both are lv_obj_create and must explicitly zero
+        padding/border — the default LVGL theme adds a card style to plain lv_obj
+        (pad_all≈16-24px + 2px border). Child coordinates start from the content area
+        (origin + padding + border), so each unreset nested container shifts its subtree
+        by ~18-26px (EEZ does the same zeroing only for user widget instances in the C
+        build path; see UserWidget.tsx buildStyleIfNotDefined).
+
+        container/panel 共用：必须显式清零 padding/border，否则默认主题 card 样式
+        会让每层嵌套子树整体偏移 ~18-26px。"""
         if n.get("layout"):
             w, h = self.flex_autosize(n, p, w, h)
         obj = self.base(wtype, n, p, x, y, w, h)
-        # 有事件（如文件条目点击选中）必须是 CLICKABLE 才会触发；
-        # "clickable": true 用于透明点击屏蔽板（吞掉点击、无事件）
+        # With events (e.g. tap-to-select file entries) CLICKABLE is required to fire;
+        # "clickable": true alone is for transparent click shields (swallow clicks, no events).
+        # 有事件必须 CLICKABLE 才触发；clickable:true 用于透明点击屏蔽板。
         obj["clickableFlag"] = bool(n.get("events") or n.get("clickable"))
-        # 滚动区域：视口 panel 高度贴合屏幕，子元素向下超出内容区即可滚动。
-        # 必须同时 CLICKABLE——触摸拖动滚动要求对象能接收按下事件
+        # Scroll region: the viewport panel matches screen height; children overflowing
+        # the content area make it scrollable. CLICKABLE is also required — touch-drag
+        # scrolling needs the object to accept press events.
+        # 滚动区域：子元素超出内容区即可滚动，且必须 CLICKABLE。
         if n.get("scrollable"):
             obj["widgetFlags"] += "|SCROLLABLE"
             obj["clickableFlag"] = True
@@ -682,7 +715,7 @@ class Compiler:
         align = FLEX_ALIGN.get(str(n.get("align", "start")).lower(), "START")
         d = obj["localStyles"].setdefault("definition", {})
         main = d.setdefault("MAIN", {}).setdefault("DEFAULT", {})
-        # 必须先 layout=FLEX 激活，flex_flow 等才生效（历史坑）
+        # layout=FLEX must be set first to activate flex; only then do flex_flow etc. take effect. 必须先 layout=FLEX 激活。
         main["layout"] = "FLEX"
         main["flex_flow"] = flow
         main["flex_main_place"] = justify
@@ -690,10 +723,10 @@ class Compiler:
         main["pad_row"] = gap
         main["pad_column"] = gap
 
-    # ----- 子元素布局 -----
+    # ----- Child layout 子元素布局 -----
 
     def estimate_size(self, node: dict, p: str, parent_w: int) -> tuple[int, int]:
-        """估算 flex 子元素尺寸（撑大父容器/占位用）"""
+        """Estimate flex child size (for parent auto-grow / placeholders). 估算 flex 子元素尺寸（撑大父容器/占位用）。"""
         dw, dh = DEFAULT_SIZE.get(str(node.get("type", "label")), (80, 24))
         if "widget" in node:
             d = self.widget_defs.get(node["widget"], {})
@@ -719,10 +752,14 @@ class Compiler:
         return w, h
 
     def flex_autosize(self, node: dict, p: str, w: int, h: int) -> tuple[int, int]:
-        """flex 容器按子元素撑大（显式声明的尺寸优先，只撑大不缩小）：
-        - row: h = max(子h)（gap 是子元素间距，不是容器内边距，不额外加）
-        - col: h = sum(子h) + gap*(n-1)，w = max(子w)
-        注意 def 节点用 height/width 键，普通节点用 h/w 键，两者都认。
+        """Grow a flex container to fit its children (declared sizes win; grow-only, never shrink):
+        - row: h = max(child h) (gap is child-to-child spacing, not container padding — not added)
+        - col: h = sum(child h) + gap*(n-1), w = max(child w)
+        Note: def nodes use height/width keys, regular nodes use h/w; both are accepted.
+
+        flex 容器按子元素撑大（显式声明优先，只撑大不缩小）：
+        row: h=max(子h)；col: h=sum(子h)+gap*(n-1)，w=max(子w)。
+        def 节点用 height/width 键，普通节点用 h/w 键，两者都认。
         """
         gap = need_int("gap", node.get("gap"), 4)
         kids = node.get("children") or []
@@ -738,15 +775,15 @@ class Compiler:
         else:
             need_h = max(s[1] for s in sizes)
             need_w = sum(s[0] for s in sizes) + gap * (len(sizes) - 1)
-        # 高度：显式声明优先；不足时警告并撑大
+        # Height: declared value wins; warn and grow when insufficient
         if declared_h is not None:
             h_final = max(int(declared_h), need_h)
             if need_h > int(declared_h):
-                print(f"⚠ {p}: 声明高度 {declared_h} < 子元素需要 {need_h}，已撑大到 {h_final}",
-                      file=sys.stderr)
+                print(f"⚠ {p}: declared height {declared_h} < {need_h} required by children, "
+                      f"grown to {h_final}", file=sys.stderr)
         else:
             h_final = max(h, need_h)
-        # 宽度：col 按子元素撑（声明优先）；row 沿用传入 w
+        # Width: col grows to fit children (declared wins); row keeps the incoming w. 宽度：col 按子元素撑（声明优先）；row 沿用传入 w。
         if is_col:
             if declared_w is not None:
                 w_final = max(int(declared_w), need_w)
@@ -757,10 +794,13 @@ class Compiler:
         return w_final, h_final
 
     def place_children(self, node: dict, p: str, parent_w: int) -> list[dict[str, Any]]:
-        """对 node.children 布局并构建，返回组件列表：
-        - flex 容器：子元素占位 (0,0)，LVGL 运行时重排
-        - 显式 x/y：直接用
-        - 无坐标：竖向堆叠
+        """Lay out and build node.children; returns the component list:
+        - flex container: children placed at (0,0); LVGL re-flows at runtime
+        - explicit x/y: used as-is
+        - no coordinates: stacked vertically
+
+        对 node.children 布局并构建：flex 占位 (0,0) 运行时重排；
+        显式 x/y 直接用；无坐标竖向堆叠。
         """
         kids = node.get("children") or []
         flex_mode = bool(node.get("layout"))
@@ -770,7 +810,7 @@ class Compiler:
         for i, c in enumerate(kids):
             cp = f"{p}.children[{i}]"
             if not isinstance(c, dict):
-                self.err(cp, "应为对象")
+                self.err(cp, "expected object")
                 continue
             if flex_mode:
                 w, h = self.estimate_size(c, cp, parent_w)
@@ -787,35 +827,42 @@ class Compiler:
                 child = self.build_widget(c, cp, 0, cursor_y, w, h)
                 cursor_y += h + gap
             if c.get("children") and child["type"] not in ("LVGLContainerWidget", "LVGLPanelWidget"):
-                self.err(cp, f"{c.get('type')!r} 不支持 children（仅 container/panel）")
+                self.err(cp, f"{c.get('type')!r} does not support children (container/panel only)")
             out.append(child)
         return out
 
     def fill_children(self, obj: dict, node: dict, p: str) -> None:
-        """把 node.children 布局并构建，塞进 obj['children']"""
+        """Lay out and build node.children into obj['children']. 把 node.children 布局并构建，塞进 obj['children']。"""
         obj["children"].extend(self.place_children(node, p, obj["width"]))
 
-    # ----- 页面 -----
+    # ----- Pages 页面 -----
 
     def build_page(self, name: str, node: dict[str, Any], width: int, height: int,
                    is_user_widget: bool) -> dict:
-        """组装 Page（userPages/userWidgets 条目）。
+        """Assemble a Page (a userPages/userWidgets entry).
 
-        普通页：root 为 LVGLScreenWidget（真 screen），children 挂它下面。
+        Regular page: root is an LVGLScreenWidget (a real screen); children hang below it.
 
-        user widget 页（官方结构，实测验证）：**没有根 widget**，页面 components
-        就是子组件平铺（Page.lvglCreate else 分支遍历页面级组件创建），
-        坐标以 user widget 本身为基准。不要加 ScreenWidget 根（预览路径
-        Screen.tsx 无条件 createScreen，嵌在实例下渲染错位）或 Panel 中间层
-        （同样引入偏移）。def 级 bg 用全尺寸背景容器做第一个兄弟实现，
-        后画的组件在其上层。user widget 页必须显式 isUsedAsUserWidget:true。
+        User widget page (official structure, verified in practice): **no root widget** —
+        the page components are the flattened children (Page.lvglCreate's else branch
+        iterates page-level components); coordinates are relative to the user widget
+        itself. Do not add a ScreenWidget root (the preview path Screen.tsx calls
+        createScreen unconditionally; nested under an instance it renders misplaced) or
+        a Panel middle layer (same offset problem). A def-level bg is realized as a
+        full-size background container as the first sibling; later components draw on
+        top. User widget pages must set isUsedAsUserWidget: true explicitly.
+
+        普通页：root 为 LVGLScreenWidget。user widget 页：没有根 widget，components
+        平铺，坐标以 user widget 为基准；不要加 ScreenWidget 根或 Panel 中间层；
+        def 级 bg 用全尺寸背景容器做第一个兄弟；必须 isUsedAsUserWidget:true。
         """
         p = f"{'widgets' if is_user_widget else 'screens'}[{name!r}]"
 
         if is_user_widget:
             if node.get("layout"):
-                print(f"⚠ {p}: user widget 里用 flex 需要容器层，而容器层会引入"
-                      f"坐标偏移（实测），已忽略 layout，请用显式 x/y", file=sys.stderr)
+                print(f"⚠ {p}: flex inside a user widget needs a container layer, which "
+                      f"introduces a coordinate offset (verified in practice); layout "
+                      f"ignored, use explicit x/y", file=sys.stderr)
             children_node = {"children": copy.deepcopy(node.get("children") or [])}
             comps: list[dict[str, Any]] = []
             if node.get("bg"):
@@ -826,13 +873,15 @@ class Compiler:
                 comps.append(bg)
             comps.extend(self.place_children(children_node, p, width))
 
-            # 页面级 flow：组件事件引脚直连动作链（handlerType=flow）。
-            # 作用域规则（identifiers.ts）：顶层 action 只见普通页 widget，
-            # user widget 页的 widget 只在本页 flow 可见 —— 组件内部交互必须走这里
+            # Page-level flow: a component event pin connects directly to an action chain
+            # (handlerType=flow). Scoping rule (identifiers.ts): top-level actions only see
+            # regular-page widgets; widgets inside a user widget page are visible only to
+            # that page's own flow — internal component interactions must go through this.
+            # 页面级 flow：组件事件引脚直连动作链；user widget 内部交互必须走这里。
             flow_lines: list[dict[str, Any]] = []
 
             def find_by_id(objs: list, ident: str) -> dict[str, Any] | None:
-                full = self.id_map.get(ident, ident)   # when.id 可写简短 id
+                full = self.id_map.get(ident, ident)   # when.id may use the short id when.id 可写简短 id
                 for o in objs:
                     if o.get("identifier") == full:
                         return o
@@ -848,7 +897,7 @@ class Compiler:
                 evt = str(need_str(f"{tp}.when.event", when.get("event"), "clicked")).upper()
                 target_widget = find_by_id(comps, wid)
                 if target_widget is None:
-                    self.err(f"{tp}.when.id", f"页面里没有 id 为 {wid!r} 的组件")
+                    self.err(f"{tp}.when.id", f"no component with id {wid!r} on this page")
                     continue
                 target_widget["eventHandlers"].append({
                     "objID": oid(),
@@ -881,13 +930,13 @@ class Compiler:
             "CLICKABLE|PRESS_LOCK|CLICK_FOCUSABLE|GESTURE_BUBBLE|SNAPPABLE|"
             "SCROLLABLE|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER"
         )
-        # 根上的样式/布局
+        # Styles/layout on the root. 根上的样式/布局。
         root["localStyles"] = self.styles_for(node, p, use_default_font=False)
         if node.get("layout"):
             self.apply_flex(node, root)
             w, h = self.flex_autosize(node, p, width, height)
             root["width"], root["height"] = w, h
-        # 顶层 children：有 layout 用 flex 占位，否则竖向堆叠/显式坐标
+        # Top-level children: flex placeholders when layout is set; otherwise vertical stacking / explicit coords. 顶层 children：有 layout 用 flex 占位，否则竖向堆叠/显式坐标。
         children_node = {"children": copy.deepcopy(node.get("children") or []),
                          "layout": node.get("layout"), "gap": node.get("gap")}
         self.fill_children(root, children_node, p)
@@ -907,7 +956,7 @@ class Compiler:
         return page
 
     def compile(self) -> dict[str, Any]:
-        # 1) user widget 定义页
+        # 1) user widget definition pages 定义页
         user_widgets = []
         for name, d in self.widget_defs.items():
             w = need_int(f"widgets[{name!r}].width", d.get("width"), 100)
@@ -915,18 +964,18 @@ class Compiler:
             page = self.build_page(name, d, w, h, is_user_widget=True)
             user_widgets.append(page)
 
-        # 2) 屏幕
+        # 2) screens 屏幕
         pages = []
         screen_names: set[str] = set()
         for s in self.ir.get("screens") or []:
             name = need_str("screens[].name", s.get("name"))
             if name in screen_names:
-                self.err(f"screens[{name!r}]", "重名")
+                self.err(f"screens[{name!r}]", "duplicate name")
             screen_names.add(name)
             page = self.build_page(name, s, self.sw, self.sh, is_user_widget=False)
             pages.append(page)
 
-        # 3) action（显式 flow + 事件引用的 native 空壳）
+        # 3) actions (explicit flows + native stubs referenced by events). action（显式 flow + 事件引用的 native 空壳）。
         actions = []
         for a in self.actions_ir:
             name = need_str("actions[].name", a.get("name"))
@@ -949,10 +998,10 @@ class Compiler:
                 "name": name, "implementationType": "native",
             })
             self.native_actions.setdefault(name, False)
-            print(f"⚠ 事件引用的 action {name!r} 未定义，生成 native 空壳", file=sys.stderr)
+            print(f"⚠ action {name!r} referenced by an event is not defined; generated a native stub", file=sys.stderr)
 
         if self.errors:
-            raise IRError("IR 校验失败:\n  " + "\n  ".join(self.errors))
+            raise IRError("IR validation failed:\n  " + "\n  ".join(self.errors))
 
         return assemble_project(pages, user_widgets,
                                 list(self.vars.vars.values()), actions,
@@ -963,10 +1012,14 @@ class Compiler:
     def flow_nodes(self, steps: list, p: str, top: int,
                    entry: tuple[dict[str, Any], str] | None = None
                    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """steps 线性序列 → 节点链（@seqout→@seqin），坐标自动布局。
-        entry=(起始组件, 输出引脚名)：页面 flow 从事件引脚进入；
-        entry=None 时生成 Start 节点做入口（顶层 action 用）。
-        返回 (components, connectionLines)。"""
+        """A linear steps sequence → a node chain (@seqout→@seqin) with auto layout.
+        entry=(starting component, output pin name): page flows enter from an event pin;
+        entry=None generates a Start node as the entry (for top-level actions).
+        Returns (components, connectionLines).
+
+        steps 线性序列 → 节点链（@seqout→@seqin），坐标自动布局；
+        entry=None 时生成 Start 节点做入口。返回 (components, connectionLines)。
+        """
         comps: list[dict[str, Any]] = []
         lines: list[dict[str, Any]] = []
 
@@ -976,7 +1029,7 @@ class Compiler:
                 "type": wtype,
                 "left": 60 + col_i * 280,
                 "top": top,
-                "width": 100, "height": 40,   # 纯视觉，EEZ 会 autoSize
+                "width": 100, "height": 40,   # purely visual; EEZ auto-sizes 纯视觉，EEZ 会 autoSize
                 "customInputs": [], "customOutputs": [],
                 "description": "",
                 **extra,
@@ -996,7 +1049,7 @@ class Compiler:
         for i, step in enumerate(steps):
             sp = f"{p}.steps[{i}]"
             if not isinstance(step, dict):
-                self.err(sp, "step 应为对象")
+                self.err(sp, "step must be an object")
                 continue
             op = need_str(f"{sp}.op", step.get("op"))
             if op == "lvgl":
@@ -1016,7 +1069,7 @@ class Compiler:
                 target = need_str(f"{sp}.action", step.get("action"))
                 node = fnode("CallActionActionComponent", {"action": target}, i + 1)
             else:
-                self.err(sp, f"未知 op {op!r}（支持 lvgl/set/delay/call）")
+                self.err(sp, f"unknown op {op!r} (supported: lvgl/set/delay/call)")
                 continue
             comps.append(node)
             connect(prev_id, prev_out, node, "@seqin")
@@ -1042,7 +1095,7 @@ class Compiler:
         if action in ("objAddState", "objClearState"):
             return self._lvgl_action_state_change(step, p)
         if action in ("objAddFlag", "objClearFlag"):
-            return self._lvgl_action_state_change(step, p)  # 结构相同：object + flag(默认 HIDDEN)
+            return self._lvgl_action_state_change(step, p)  # same structure: object + flag (default HIDDEN) 结构相同：object + flag(默认 HIDDEN)
         if action == "labelSetText":
             return {
                 "objID": oid(),
@@ -1056,7 +1109,7 @@ class Compiler:
             screen = need_str(f"{p}.screen", step.get("screen"))
             names = {s.get("name") for s in self.ir.get("screens") or []}
             if screen not in names:
-                self.err(f"{p}.screen", f"引用了未定义的 screen {screen!r}")
+                self.err(f"{p}.screen", f"references undefined screen {screen!r}")
             return {
                 "objID": oid(),
                 "action": "changeScreen",
@@ -1079,23 +1132,29 @@ class Compiler:
                 "y": need_int(f"{p}.y", step.get("y"), 0),
                 "yType": "literal",
             }
-        self.err(p, f"lvgl action {action!r} 暂不支持")
+        self.err(p, f"lvgl action {action!r} not yet supported")
         return {"objID": oid(), "action": action}
 
     def _lvgl_action_target(self, step: dict, p: str) -> str:
-        """校验并返回动作目标完整 identifier：target 可写 IR 简短 id（自动映射到
-        带类型前缀的完整名）或完整 identifier"""
+        """Validate and return the action target's full identifier: target may be an IR
+        short id (auto-mapped to the prefixed full name) or a full identifier.
+
+        校验并返回动作目标完整 identifier（简短 id 自动映射）。
+        """
         target = need_str(f"{p}.target", step.get("target"))
         if target in self.id_map:
             return self.id_map[target]
         if target in self.known_ids:
             return target
-        self.err(f"{p}.target", f"目标 identifier {target!r} 不存在（先给组件加 id）")
+        self.err(f"{p}.target", f"target identifier {target!r} does not exist (give the component an id first)")
         return target
 
     def _lvgl_action_state_change(self, step: dict, p: str) -> dict[str, Any]:
-        """objAddState / objClearState（object + state，默认 CHECKED）；
-        objAddFlag / objClearFlag（object + flag，默认 HIDDEN，用于局部视图切换）"""
+        """objAddState / objClearState (object + state, default CHECKED);
+        objAddFlag / objClearFlag (object + flag, default HIDDEN, for partial view switching).
+
+        objAddState/objClearState 默认 CHECKED；objAddFlag/objClearFlag 默认 HIDDEN。
+        """
         action = need_str(f"{p}.action", step.get("action"))
         if "Flag" in action:
             key, default = "flag", "HIDDEN"
@@ -1112,7 +1171,7 @@ class Compiler:
         return item
 
 
-# ---------- 项目组装 ----------
+# ---------- Project assembly 项目组装 ----------
 
 def assemble_project(pages: list, user_widgets: list, variables: list,
                      actions: list, sw: int, sh: int) -> dict[str, Any]:
@@ -1201,11 +1260,15 @@ def assemble_project(pages: list, user_widgets: list, variables: list,
     }
 
 
-# ---------- 字形覆盖校验 ----------
+# ---------- Glyph coverage check 字形覆盖校验 ----------
 
 def check_font_coverage(project: dict[str, Any], out: list[str]) -> None:
-    """所有会显示的文本字符必须在对应字体的字符集里，否则设备上方块。
-    字符集 = fonts/<名>.meta.json 的 lvglSymbols + 图标源 symbols。"""
+    """Every displayed text character must be in the target font's charset, or the
+    device shows boxes. Charset = lvglSymbols from fonts/<name>.meta.json + icon-source symbols.
+
+    所有会显示的字符必须在字体字符集里，否则设备上方块。
+    字符集 = fonts/<名>.meta.json 的 lvglSymbols + 图标源 symbols。
+    """
     from generator import FONTS_DIR
 
     charsets: dict[str, set[str]] = {}
@@ -1220,7 +1283,7 @@ def check_font_coverage(project: dict[str, Any], out: list[str]) -> None:
         cs = set(meta.get("lvglSymbols", ""))
         for src in meta.get("iconSources", []):
             cs |= set(src.get("symbols", ""))
-            # ranges 形如 "0xF048,0xF293-0xF294"：解析成码点集合
+            # ranges look like "0xF048,0xF293-0xF294": parse into a codepoint set. ranges 解析成码点集合。
             for piece in str(src.get("ranges", "")).split(","):
                 piece = piece.strip()
                 if not piece:
@@ -1248,8 +1311,8 @@ def check_font_coverage(project: dict[str, Any], out: list[str]) -> None:
             return
         missing = sorted({ch for ch in text if ord(ch) > 32 and ch not in cs})
         if missing:
-            out.append(f"{path}: 字体 {font} 缺字形 {''.join(missing)!r} "
-                       f"（重新编译字体时把该文本源加入字符扫描）")
+            out.append(f"{path}: font {font} is missing glyphs {''.join(missing)!r} "
+                       f"(add this text source to the character scan when recompiling the font)")
 
     def walk(w: dict[str, Any], font: str, path: str) -> None:
         styles = w.get("localStyles", {}).get("definition", {})
@@ -1270,13 +1333,13 @@ def check_font_coverage(project: dict[str, Any], out: list[str]) -> None:
             walk(comp, font, pg["name"])
 
 
-# ---------- 产物自检 ----------
+# ---------- Output self-check 产物自检 ----------
 
 def check_project(project: dict[str, Any]) -> list[str]:
-    """编译产物结构自检：objID 唯一、连线两端存在、userWidgetPageName 引用有效"""
+    """Self-check of the compiled output: unique objIDs, existing line endpoints, valid userWidgetPageName refs. 编译产物结构自检：objID 唯一、连线两端存在、userWidgetPageName 引用有效。"""
     problems: list[str] = []
     ids: dict[str, str] = {}
-    flow_nodes: dict[str, list[str]] = {}   # objID → 可用输出引脚
+    flow_nodes: dict[str, list[str]] = {}   # objID → available output pins objID → 可用输出引脚
     screens = {p["name"] for p in project["userPages"]}
     widgets = {w["name"] for w in project["userWidgets"]}
     actions = {a["name"] for a in project["actions"]}
@@ -1285,7 +1348,7 @@ def check_project(project: dict[str, Any]) -> list[str]:
         if isinstance(o, dict):
             if "objID" in o and isinstance(o["objID"], str):
                 if o["objID"] in ids and not o["objID"].startswith("objid-placeholder"):
-                    problems.append(f"objID 重复: {o['objID']} ({ids[o['objID']]} 与 {path})")
+                    problems.append(f"duplicate objID: {o['objID']} ({ids[o['objID']]} and {path})")
                 ids[o["objID"]] = path
             for k, v in o.items():
                 walk(v, f"{path}.{k}")
@@ -1304,27 +1367,27 @@ def check_project(project: dict[str, Any]) -> list[str]:
         for ln in a.get("connectionLines", []):
             src, dst = ln["source"], ln["target"]
             if src not in ids:
-                problems.append(f"action {a['name']}: 连线 source {src} 不存在")
+                problems.append(f"action {a['name']}: line source {src} does not exist")
             if dst not in ids:
-                problems.append(f"action {a['name']}: 连线 target {dst} 不存在")
+                problems.append(f"action {a['name']}: line target {dst} does not exist")
             if ln["input"] != "@seqin":
-                problems.append(f"action {a['name']}: 连线 input 应为 @seqin")
+                problems.append(f"action {a['name']}: line input must be @seqin")
 
     def walk_widgets(children: list, page: str, page_lines: list) -> None:
         for c in children:
             if c["type"] == "LVGLUserWidgetWidget":
                 if c.get("userWidgetPageName") not in widgets:
-                    problems.append(f"{page}: user widget 实例引用 {c.get('userWidgetPageName')!r} 未定义")
+                    problems.append(f"{page}: user widget instance references undefined {c.get('userWidgetPageName')!r}")
             for h in c.get("eventHandlers", []):
                 if h.get("handlerType") == "flow":
-                    # 页面 flow：必须存在从该组件事件引脚出发的连线
+                    # Page flow: a line must start from this component's event pin. 页面 flow：必须存在从事件引脚出发的连线。
                     has_line = any(ln.get("source") == c["objID"] and ln.get("output") == h["eventName"]
                                    for ln in page_lines)
                     if not has_line:
-                        problems.append(f"{page}: {c.get('identifier', '?')} 的 {h['eventName']} "
-                                        f"flow 处理器缺少连线")
+                        problems.append(f"{page}: {c.get('identifier', '?')} {h['eventName']} "
+                                        f"flow handler is missing a connection line")
                 elif h.get("action") not in actions:
-                    problems.append(f"{page}: 事件引用 action {h.get('action')!r} 未定义")
+                    problems.append(f"{page}: event references undefined action {h.get('action')!r}")
             walk_widgets(c.get("children", []), page, page_lines)
 
     for p in project["userPages"] + project["userWidgets"]:
@@ -1335,32 +1398,32 @@ def check_project(project: dict[str, Any]) -> list[str]:
                 if h.get("handlerType") == "flow":
                     if not any(ln.get("source") == comp["objID"] and ln.get("output") == h["eventName"]
                                for ln in lines):
-                        problems.append(f"{p['name']}: {comp.get('identifier', '?')} 的 "
-                                        f"{h['eventName']} flow 处理器缺少连线")
+                        problems.append(f"{p['name']}: {comp.get('identifier', '?')} "
+                                        f"{h['eventName']} flow handler is missing a connection line")
                 elif h.get("action") not in actions:
-                    problems.append(f"{p['name']}: 事件引用 action {h.get('action')!r} 未定义")
+                    problems.append(f"{p['name']}: event references undefined action {h.get('action')!r}")
 
     for a in project["actions"]:
         for c in a.get("components", []):
             if c["type"] == "LVGLActionComponent":
                 for item in c.get("actions", []):
                     if item["action"] == "changeScreen" and item["screen"] not in screens:
-                        problems.append(f"action {a['name']}: changeScreen 目标 {item['screen']!r} 未定义")
+                        problems.append(f"action {a['name']}: changeScreen target {item['screen']!r} is undefined")
     return problems
 
 
-# ---------- 主入口 ----------
+# ---------- Main entry 主入口 ----------
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="IR(JSON) → EEZ Studio .eez-project (LVGL)")
-    ap.add_argument("input", help="IR JSON 文件路径")
-    ap.add_argument("-o", "--output", default="out_ir.eez-project", help="输出文件")
+    ap.add_argument("input", help="path to the IR JSON file")
+    ap.add_argument("-o", "--output", default="out_ir.eez-project", help="output file")
     args = ap.parse_args(argv)
 
     with open(args.input, "r", encoding="utf-8") as f:
         ir = json.load(f)
     if not isinstance(ir, dict):
-        print("IR 根节点应为 JSON 对象", file=sys.stderr)
+        print("IR root must be a JSON object", file=sys.stderr)
         return 1
 
     try:
@@ -1373,7 +1436,7 @@ def main(argv: list[str]) -> int:
     problems = check_project(project)
     check_font_coverage(project, problems)
     if problems:
-        print("✗ 产物自检发现问题:", file=sys.stderr)
+        print("✗ Output self-check found problems:", file=sys.stderr)
         for pb in problems:
             print(f"  - {pb}", file=sys.stderr)
         return 1
@@ -1381,16 +1444,16 @@ def main(argv: list[str]) -> int:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
-    # action.h：native 动作清单，固件 include 后实现这些回调（移植接口）
+    # action.h: the native action list; firmware includes it and implements these callbacks (porting interface). action.h：native 动作清单，固件实现这些回调。
     if compiler.native_actions:
         import os
         h_path = os.path.join(
             os.path.dirname(os.path.abspath(args.output)) or ".", "action.h"
         )
         lines = [
-            "// action.h — ir2eez 自动生成（勿手改）",
-            f"// native 动作清单（{len(compiler.native_actions)} 个）：值变化类带 value 参数",
-            "//   滑条/弧 → 当前值；开关 → 0/1；下拉 → 选项索引；点击类无参",
+            "// action.h — auto-generated by ir2eez (do not edit)",
+            f"// Native action list ({len(compiler.native_actions)}): value-change kinds take a value param",
+            "//   slider/arc -> current value; switch -> 0/1; dropdown -> option index; click kinds take no param",
             "#pragma once",
             "#include <stdint.h>",
             "",
@@ -1405,23 +1468,23 @@ def main(argv: list[str]) -> int:
         lines += ["", "#ifdef __cplusplus", "}", "#endif", ""]
         with open(h_path, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(lines))
-        print(f"action.h → {h_path}（{len(compiler.native_actions)} 个 native 动作）")
+        print(f"action.h → {h_path} ({len(compiler.native_actions)} native actions)")
 
     n_widgets = sum(len(p["components"][0].get("children", []))
                     for p in project["userPages"] + project["userWidgets"])
-    print(f"✓ 生成 {args.output}")
-    print(f"  屏幕:       {[p['name'] for p in project['userPages']]}")
+    print(f"✓ Generated {args.output}")
+    print(f"  Screens:     {[p['name'] for p in project['userPages']]}")
     print(f"  user widget: {[w['name'] for w in project['userWidgets']]}")
-    print(f"  变量:       {len(project['variables']['globalVariables'])} 个")
+    print(f"  Variables:   {len(project['variables']['globalVariables'])}")
     for v in project["variables"]["globalVariables"]:
         print(f"     - {v['name']:16s} {v['type']:8s} default={v['defaultValue']}"
               + (" [native]" if v["native"] else ""))
-    print(f"  action:     {len(project['actions'])} 个")
+    print(f"  Actions:     {len(project['actions'])}")
     for a in project["actions"]:
         n = len(a.get("components", []))
-        kind = f"flow({n} 节点)" if a["implementationType"] == "flow" else "native"
+        kind = f"flow({n} nodes)" if a["implementationType"] == "flow" else "native"
         print(f"     - {a['name']:24s} {kind}")
-    print(f"  顶层 widget 数: {n_widgets}")
+    print(f"  Top-level widgets: {n_widgets}")
     return 0
 
 

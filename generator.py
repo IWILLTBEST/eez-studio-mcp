@@ -1,17 +1,24 @@
 """
-html2eez — HTML → EEZ Studio .eez-project (LVGL v9) 生成器 MVP
+html2eez — HTML → EEZ Studio .eez-project (LVGL v9) generator MVP
 
-用法：
+Usage:
     python generator.py example.html -o out.eez-project
-    python generator.py example.html                # 默认输出 out.eez-project
+    python generator.py example.html                # default output: out.eez-project
 
-只依赖 Python 标准库。生成的 .eez-project 可在 EEZ Studio 中"打开项目"直接编辑。
+Depends only on the Python standard library. The generated .eez-project can be
+opened directly in EEZ Studio via "Open Project" and edited there.
 
-字体：
-    读取 fonts/catalog.json + 每个字体的 meta.json（都 < 5KB）。
-    二进制 .otf/.bin/.c 文件不进入 .eez-project，而是以相对路径引用，
-    EEZ Studio 打开时按 source.filePath 自动加载。
-    如需在 EEZ 内重新编辑字形，把对应 .otf 放在 .eez-project 同级 fonts/ 下。
+Fonts:
+    Reads fonts/catalog.json plus each font's meta.json (both < 5KB).
+    Binary .otf/.bin/.c files are not embedded into the .eez-project; they are
+    referenced by relative path and EEZ Studio loads them via source.filePath.
+    To re-edit glyphs inside EEZ, place the corresponding .otf in a fonts/
+    folder next to the .eez-project.
+
+html2eez — HTML → EEZ Studio .eez-project (LVGL v9) 生成器 MVP。
+只依赖 Python 标准库，产物可在 EEZ Studio 中直接打开编辑。
+字体：读取 fonts/catalog.json + meta.json；二进制不进 .eez-project，
+按相对路径引用，EEZ 打开时自动加载。
 """
 from __future__ import annotations
 
@@ -26,16 +33,16 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
-# Windows 控制台默认 GBK，强制 stdout/stderr UTF-8（避免 emoji/中文崩溃）
+# Windows console defaults to GBK; force stdout/stderr UTF-8 (avoids emoji/CJK crashes). Windows 控制台默认 GBK，强制 UTF-8。
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-# ---------- 工具 ----------
+# ---------- Utilities 工具 ----------
 
 def oid() -> str:
-    """生成 EEZ 期望的 objID（UUID v4 字符串）"""
+    """Generate the objID EEZ expects (a UUID v4 string). 生成 EEZ 期望的 objID（UUID v4 字符串）。"""
     return str(uuid.uuid4())
 
 
@@ -50,7 +57,7 @@ def parse_events(attr_value: str) -> list[tuple[str, str]]:
             evt, act = piece.split(":", 1)
             out.append((evt.strip().upper(), act.strip()))
         else:
-            # 只有 action 名 → 默认 CLICKED
+            # Action name only → defaults to CLICKED. 只有 action 名 → 默认 CLICKED。
             out.append(("CLICKED", piece))
     return out
 
@@ -65,7 +72,7 @@ class Node:
         self.tag = tag
         self.attrs = attrs
         self.children: list[Node] = []
-        self.text = ""          # 直接文本（叶子用）
+        self.text = ""          # direct text (used by leaves) 直接文本（叶子用）
         self.parent: Node | None = None
 
     def get(self, name: str, default: str = "") -> str:
@@ -96,7 +103,7 @@ class DOMBuilder(HTMLParser):
         self.stack[-1].children.append(node)
 
     def handle_endtag(self, tag: str):
-        # 弹到匹配标签
+        # Pop the stack up to the matching tag. 弹到匹配标签。
         for i in range(len(self.stack) - 1, 0, -1):
             if self.stack[i].tag == tag:
                 del self.stack[i:]
@@ -105,7 +112,7 @@ class DOMBuilder(HTMLParser):
     def handle_data(self, data: str):
         text = data.strip()
         if text:
-            # 追加到栈顶节点的文本（叶子节点用）
+            # Append to the top-of-stack node's text (for leaf nodes). 追加到栈顶节点的文本（叶子节点用）。
             top = self.stack[-1]
             if top.text:
                 top.text += " " + text
@@ -120,10 +127,10 @@ def parse_html(text: str) -> Node:
     return p.root
 
 
-# ---------- 收集 ----------
+# ---------- Collection 收集 ----------
 
 class Collector:
-    """第一次遍历：收集所有引用过的变量、动作、字体；推断变量类型"""
+    """First pass: collect all referenced variables, actions and fonts; infer variable types. 第一次遍历：收集引用过的变量、动作、字体；推断变量类型。"""
 
     def __init__(self) -> None:
         self.vars: dict[str, dict[str, Any]] = {}     # name → declaration
@@ -145,21 +152,21 @@ class Collector:
 
 
 def is_leaf_text(node: Node) -> bool:
-    """叶子文本节点：自身没有 element 子节点"""
+    """Leaf text node: no element children of its own. 叶子文本节点：自身没有 element 子节点。"""
     return not any(c.tag not in ("#text",) for c in node.children)
 
 
-# ---------- 布局 ----------
+# ---------- Layout 布局 ----------
 
-# HTML inline 元素：在行内横排，宽度按内容估算
+# HTML inline elements: flow horizontally within a row; width estimated from content. HTML inline 元素：行内横排，宽度按内容估算。
 INLINE_TAGS = {"button", "a", "img", "span", "input", "label", "select", "checkbox",
                "switch", "arc", "spinner", "led", "dropdown"}
 
-# 按字体大小估算字符宽度（中文≈1em，ASCII≈0.6em）
+# Estimate character width by font size (CJK ≈ 1em, ASCII ≈ 0.6em). 按字体大小估算字符宽度（中文≈1em，ASCII≈0.6em）。
 def estimate_text_width(text: str, font_size: int) -> int:
     w = 0
     for ch in text:
-        # CJK / 全角字符
+        # CJK / fullwidth characters. CJK / 全角字符。
         if ord(ch) > 0x2E80:
             w += font_size
         else:
@@ -168,9 +175,11 @@ def estimate_text_width(text: str, font_size: int) -> int:
 
 
 class Layout:
-    """HTML-like 布局：
-    - inline 元素（button/a/img/span/input）按内容宽度横排，超出换行
-    - block 元素（div/p/h1/hr）独占整行
+    """HTML-like layout:
+    - inline elements (button/a/img/span/input) flow horizontally by content width, wrapping when the row is full
+    - block elements (div/p/h1/hr) take the whole row
+
+    HTML-like 布局：inline 元素按内容宽度横排、超出换行；block 元素独占整行。
     """
 
     def __init__(self, screen_w: int, screen_h: int):
@@ -181,15 +190,15 @@ class Layout:
         return node.tag in INLINE_TAGS and not node.has("data-x")
 
     def estimate_size(self, node: Node, parent_w: int, default_h: int = 40) -> tuple[int, int]:
-        """估算 widget 宽高（用于 inline 元素）"""
+        """Estimate widget width/height (for inline elements). 估算 widget 宽高（用于 inline 元素）。"""
         w_attr = node.get("data-w", "")
         h_attr = node.get("data-h", "")
         if w_attr:
             w = int(w_attr)
         elif node.tag in ("button", "a"):
-            # 按钮：文字宽度 + 左右 padding 各 24
+            # Button: text width + 24px padding on each side. 按钮：文字宽度 + 左右 padding 各 24。
             text = node.text or node.get("data-text", "Btn")
-            font_size = 16  # 默认估算
+            font_size = 16  # default estimate 默认估算
             font_name = resolve_attr(node, "data-font")
             if font_name and "_" in font_name:
                 try:
@@ -198,7 +207,7 @@ class Layout:
                     pass
             w = estimate_text_width(text, font_size) + 48
         elif node.tag == "img":
-            w = 80  # 默认图标
+            w = 80  # default icon 默认图标
         elif node.tag == "input":
             t = node.get("type", "text")
             if t == "range":
@@ -219,7 +228,7 @@ class Layout:
             w = 32
         else:
             w = parent_w
-        # 默认高度按 widget 类型
+        # Default height depends on widget type. 默认高度按 widget 类型。
         if h_attr:
             h = int(h_attr)
         elif node.tag == "arc":
@@ -235,11 +244,11 @@ class Layout:
         return w, h
 
     def place_inline(self, node: Node, parent_w: int, cursor_x: int, cursor_y: int, row_h: int) -> tuple[int, int, int, int, int]:
-        """inline 放置：返回 (x, y, w, h, new_row_h)"""
+        """Inline placement: returns (x, y, w, h, new_row_h). inline 放置：返回 (x, y, w, h, new_row_h)。"""
         w, h = self.estimate_size(node, parent_w)
         x = cursor_x
         y = cursor_y
-        # 换行检测
+        # Line-wrap check. 换行检测。
         if cursor_x + w > parent_w and cursor_x > 0:
             x = 0
             y = cursor_y + row_h + 4
@@ -258,7 +267,7 @@ class Layout:
         return x, y, w, h
 
 
-# ---------- Widget 构造 ----------
+# ---------- Widget construction Widget 构造 ----------
 
 DEFAULT_FLAGS = (
     "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|"
@@ -268,7 +277,7 @@ DEFAULT_FLAGS = (
 
 
 def base_widget(wtype: str, node: Node, x: int, y: int, w: int, h: int) -> dict[str, Any]:
-    """构造 widget 公共字段"""
+    """Build the common widget fields. 构造 widget 公共字段。"""
     obj: dict[str, Any] = {
         "objID": oid(),
         "type": wtype,
@@ -340,7 +349,7 @@ def make_event_handlers(node: Node, col: Collector) -> list[dict[str, Any]]:
 
 
 def resolve_attr(node: Node, name: str) -> str:
-    """从 node 向上查 parent 找属性值（用于 data-font 的继承）"""
+    """Walk up from node through parents looking for an attribute value (for data-font inheritance). 从 node 向上查 parent 找属性值（data-font 继承用）。"""
     cur: Node | None = node
     while cur is not None:
         if cur.has(name):
@@ -350,7 +359,7 @@ def resolve_attr(node: Node, name: str) -> str:
 
 
 def local_styles_for(node: Node) -> dict[str, Any]:
-    """构造 localStyles.definition，根据 data-font / data-color"""
+    """Build localStyles.definition from data-font / data-color. 构造 localStyles.definition，根据 data-font / data-color。"""
     definition: dict[str, Any] = {}
     main_default: dict[str, Any] = {}
     font = resolve_attr(node, "data-font")
@@ -367,7 +376,7 @@ def local_styles_for(node: Node) -> dict[str, Any]:
     return {"objID": oid()}
 
 
-# ---------- 主转换 ----------
+# ---------- Main conversion 主转换 ----------
 
 TAG_TO_WIDGET = {
     "div": "LVGLContainerWidget",
@@ -408,16 +417,16 @@ def build_button(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> 
     obj["clickableFlag"] = True
     obj["localStyles"] = local_styles_for(node)
     obj["eventHandlers"] = make_event_handlers(node, col)
-    # 子 Label：自适应大小 + align=CENTER 居中于父按钮（EEZ 默认 button 模式）
+    # Child label: content-sized + align=CENTER within the parent button (EEZ default button pattern). 子 Label：自适应大小 + 居中于父按钮。
     label_text = node.text or node.get("data-text", "Button")
     label_node = Node("label", {})
     label_node.text = label_text
-    label_node.parent = node  # 让 resolve_attr 能向上找 data-font
+    label_node.parent = node  # so resolve_attr can find data-font upward 让 resolve_attr 能向上找 data-font
     lbl = build_label(label_node, 0, 0, 80, 32, col)
-    # 覆盖为自适应尺寸
+    # Override to content-sized. 覆盖为自适应尺寸。
     lbl["widthUnit"] = "content"
     lbl["heightUnit"] = "content"
-    # localStyles：text_font 继承 + align=CENTER（对象在父中心）
+    # localStyles: inherited text_font + align=CENTER (object centered in parent). localStyles：text_font 继承 + align=CENTER。
     lbl_style = lbl["localStyles"]
     if "definition" not in lbl_style:
         lbl_style["definition"] = {}
@@ -435,7 +444,7 @@ def build_image(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> d
 
 
 def build_bar_or_slider(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dict[str, Any]:
-    """input[type=range] → 若有 data-var 用 Bar（显示进度），否则 Slider"""
+    """input[type=range] → Bar if data-var is present (progress display), else Slider. input[type=range] → 有 data-var 用 Bar（显示进度），否则 Slider。"""
     var = node.get("data-var", "")
     wtype = "LVGLBarWidget" if var else "LVGLSliderWidget"
     obj = base_widget(wtype, node, x, y, w, h)
@@ -481,7 +490,7 @@ def build_textarea(node: Node, x: int, y: int, w: int, h: int, col: Collector) -
 def build_container(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dict[str, Any]:
     layout_mode = node.get("data-layout", "")
     if layout_mode:
-        # flex 容器：自动按子元素撑大父容器，避免裁剪
+        # Flex container: auto-grow the parent to fit children, avoiding clipping. flex 容器：自动按子元素撑大父容器，避免裁剪。
         w, h = _flex_autosize(node, w, h)
 
     obj = base_widget("LVGLContainerWidget", node, x, y, w, h)
@@ -493,10 +502,10 @@ def build_container(node: Node, x: int, y: int, w: int, h: int, col: Collector) 
 
 
 def _estimate_child_size(node: Node, parent_w: int) -> tuple[int, int]:
-    """估算子元素尺寸，对 flex 容器子元素递归计算真实尺寸"""
+    """Estimate child size; recursively computes the real size for flex-container children. 估算子元素尺寸，flex 容器子元素递归计算真实尺寸。"""
     layout = Layout(parent_w, 0)
     w, h = layout.estimate_size(node, parent_w)
-    # 如果子元素本身是 flex 容器，递归算它真正需要的尺寸
+    # If the child is itself a flex container, recursively compute what it really needs. 如果子元素本身是 flex 容器，递归算真正需要的尺寸。
     child_layout = node.get("data-layout", "")
     if child_layout:
         cw, ch = _flex_autosize(node, w, h)
@@ -505,11 +514,15 @@ def _estimate_child_size(node: Node, parent_w: int) -> tuple[int, int]:
 
 
 def _flex_autosize(node: Node, w: int, h: int) -> tuple[int, int]:
-    """flex 容器自动撑大，保证父 > 子（递归）：
-    - row 布局：高度 = max(子高) + 上下 gap
-    - col 布局：高度 = sum(子高) + 间隔 + 上下 gap；宽度 = max(子宽) + 左右 gap
-    - data-h="auto" 或未设 → 用计算值
-    - data-h=<N> → 取 max(N, 计算值) 并打印 warning
+    """Auto-grow a flex container so parent ≥ children (recursive):
+    - row: height = max(child h) + vertical gap
+    - col: height = sum(child h) + spacing + vertical gap; width = max(child w) + horizontal gap
+    - data-h="auto" or unset → use the computed value
+    - data-h=<N> → max(N, computed), with a warning printed
+
+    flex 容器自动撑大，保证父 > 子（递归）：row 高度 = max(子高)+gap；
+    col 高度 = sum(子高)+间隔+gap，宽度 = max(子宽)+gap。
+    data-h="auto"/未设用计算值；data-h=<N> 取 max(N, 计算值) 并告警。
     """
     layout = Layout(w, h)
     gap = int(node.get("data-gap", "4"))
@@ -531,17 +544,17 @@ def _flex_autosize(node: Node, w: int, h: int) -> tuple[int, int]:
     w_attr = node.get("data-w", "")
     h_attr = node.get("data-h", "")
 
-    # 高度
+    # Height 高度
     if h_attr.lower() == "auto" or not h_attr:
         h = (max_child_h + pad) if is_row else (sum_child_h + pad)
     else:
         explicit_h = int(h_attr)
         needed_h = (max_child_h + pad) if is_row else (sum_child_h + pad)
         if explicit_h < needed_h:
-            print(f"⚠ Container data-h={explicit_h} < 子元素需要 {needed_h}，自动撑大到 {needed_h}", file=sys.stderr)
+            print(f"⚠ Container data-h={explicit_h} < {needed_h} needed by children, auto-grown to {needed_h}", file=sys.stderr)
             h = needed_h
 
-    # 宽度（col 布局才需要按 max_child 撑大；row 默认沿用父宽）
+    # Width (only col layouts need growing to max child; row keeps parent width by default). 宽度（col 布局才按 max_child 撑大；row 默认沿用父宽）。
     if w_attr.lower() == "auto" or (is_col and not w_attr):
         w = max_child_w + pad
     elif w_attr and w_attr.lower() != "auto":
@@ -549,7 +562,7 @@ def _flex_autosize(node: Node, w: int, h: int) -> tuple[int, int]:
         if is_col:
             needed_w = max_child_w + pad
             if explicit_w < needed_w:
-                print(f"⚠ Container data-w={explicit_w} < 子元素需要 {needed_w}，自动撑大到 {needed_w}", file=sys.stderr)
+                print(f"⚠ Container data-w={explicit_w} < {needed_w} needed by children, auto-grown to {needed_w}", file=sys.stderr)
                 w = needed_w
 
     return w, h
@@ -584,7 +597,7 @@ _FLEX_ALIGN_MAP = {
 
 
 def apply_flex(node: Node, obj: dict[str, Any]) -> None:
-    """根据 data-layout/data-gap/data-justify/data-align 给容器加 flex 样式"""
+    """Add flex styles to the container from data-layout/data-gap/data-justify/data-align. 根据 data-layout/data-gap/data-justify/data-align 给容器加 flex 样式。"""
     mode = node.get("data-layout", "")
     flow = _FLEX_FLOW_MAP.get(mode.lower(), "ROW")
     gap = int(node.get("data-gap", "4"))
@@ -595,7 +608,7 @@ def apply_flex(node: Node, obj: dict[str, Any]) -> None:
     if "definition" not in style:
         style["definition"] = {}
     main_def = style["definition"].setdefault("MAIN", {}).setdefault("DEFAULT", {})
-    # 关键：必须先设 layout=FLEX 激活 flex 布局，flex_flow 等才生效
+    # Key point: layout=FLEX must be set first to activate flex; only then do flex_flow etc. take effect. 必须先设 layout=FLEX 激活，flex_flow 等才生效。
     main_def["layout"] = "FLEX"
     main_def["flex_flow"] = flow
     main_def["flex_main_place"] = justify
@@ -605,36 +618,38 @@ def apply_flex(node: Node, obj: dict[str, Any]) -> None:
 
 
 def normalize_color(value: str) -> str:
-    """把任意颜色输入转成 EEZ 接受的 #RRGGBB（6 hex 大小写保留原样）。
-    EEZ color-format.ts 只接受 3-6 hex（不含 alpha）。
-    - #RRGGBB / RRGGBB → 原样返回
-    - #RRGGBBAA / RRGGBBAA → 截前 6 位
-    - rgb(r,g,b) / rgba(...) → 转换
+    """Convert any color input to the #RRGGBB EEZ accepts (6 hex, case preserved).
+    EEZ color-format.ts only accepts 3-6 hex (no alpha).
+    - #RRGGBB / RRGGBB → returned as-is
+    - #RRGGBBAA / RRGGBBAA → first 6 digits kept
+    - rgb(r,g,b) / rgba(...) → converted
+
+    把任意颜色输入转成 EEZ 接受的 #RRGGBB（3-6 hex，不含 alpha）。
     """
     s = value.strip()
-    # 形如 #RRGGBBAA 或 RRGGBBAA（8 hex）
+    # Looks like #RRGGBBAA or RRGGBBAA (8 hex). 形如 #RRGGBBAA 或 RRGGBBAA（8 hex）。
     if s.startswith("#"):
         s = s[1:]
     if len(s) == 8 and all(c in "0123456789abcdefABCDEF" for c in s):
-        s = s[:6]  # 丢 alpha
+        s = s[:6]  # drop alpha 丢 alpha
     if len(s) == 6 and all(c in "0123456789abcdefABCDEF" for c in s):
         return f"#{s}"
     if len(s) == 3 and all(c in "0123456789abcdefABCDEF" for c in s):
         # RGB → RRGGBB
         expanded = "".join(c * 2 for c in s)
         return f"#{expanded}"
-    # 其他格式兜底
+    # Fallback for other formats. 其他格式兜底。
     return "#000000"
 
 
-# ---------- 更多 Widget ----------
+# ---------- More widgets 更多 Widget ----------
 
 def build_dropdown(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dict[str, Any]:
     """<select><option>A</option><option>B</option></select>"""
     obj = base_widget("LVGLDropdownWidget", node, x, y, w, h)
     obj["clickableFlag"] = True
     obj["localStyles"] = local_styles_for(node)
-    # 收集 <option> 文本
+    # Collect <option> texts. 收集 <option> 文本。
     options: list[str] = []
     for c in node.children:
         if c.tag == "option":
@@ -650,7 +665,7 @@ def build_dropdown(node: Node, x: int, y: int, w: int, h: int, col: Collector) -
 
 
 def build_switch(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dict[str, Any]:
-    """<switch> 或 <input type="checkbox" data-style="switch">"""
+    """<switch> or <input type="checkbox" data-style="switch">"""
     obj = base_widget("LVGLSwitchWidget", node, x, y, w or 50, h or 25)
     obj["clickableFlag"] = True
     obj["widgetFlags"] = "CHECKABLE|CLICKABLE|CLICK_FOCUSABLE|PRESS_LOCK|GESTURE_BUBBLE|SNAPPABLE"
@@ -685,7 +700,7 @@ def build_arc(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dic
     obj["valueStart"] = int(node.get("data-value-start", "0"))
     obj["valueStartType"] = "literal"
 
-    # 角度字段（EEZ 强校验，缺一会报 "must be an integer"）
+    # Angle fields (EEZ validates strictly; one missing reports "must be an integer"). 角度字段（缺一会报 "must be an integer"）。
     obj["mode"] = node.get("data-mode", "NORMAL")
     bg_start = int(node.get("data-bg-start-angle", "135"))
     bg_end = int(node.get("data-bg-end-angle", "45"))
@@ -720,15 +735,15 @@ def build_checkbox(node: Node, x: int, y: int, w: int, h: int, col: Collector) -
     """<input type="checkbox" data-text="启" data-var="cb_log">"""
     obj = base_widget("LVGLCheckboxWidget", node, x, y, w or 16, h or 16)
     obj["clickableFlag"] = True
-    # 文本（Checkbox 必须有 text/textType 字段，缺省 EEZ 渲染会乱）
+    # Text (Checkbox must have text/textType fields; EEZ rendering breaks without them). Checkbox 必须有 text/textType 字段。
     text = node.get("data-text", node.text or "")
     obj["text"] = text
     obj["textType"] = "literal"
     obj["useStaticText"] = True
-    # 自适应尺寸（让 checkbox 框 + 文字一起算大小）
+    # Content-sized (checkbox box + text measured together). 自适应尺寸（框 + 文字一起算大小）。
     obj["widthUnit"] = "content"
     obj["heightUnit"] = "content"
-    # 勾选状态
+    # Checked state. 勾选状态。
     var = node.get("data-var", "")
     if var:
         col.declare_var(var, "boolean", "false")
@@ -744,7 +759,7 @@ def build_led(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dic
     """<led data-color="#FF0000" data-brightness="255">"""
     obj = base_widget("LVGLLedWidget", node, x, y, w or 32, h or 32)
     obj["clickableFlag"] = False
-    # EEZ 只认 #RRGGBB（6 hex），HTML 习惯 #RRGGBBAA（8 hex 含 alpha）→ 规整
+    # EEZ only accepts #RRGGBB (6 hex); HTML habit is #RRGGBBAA (8 hex with alpha) → normalize. EEZ 只认 #RRGGBB，HTML 习惯 8 hex → 规整。
     obj["color"] = normalize_color(node.get("data-color", "#0000FF"))
     obj["colorType"] = "literal"
     var = node.get("data-var", "")
@@ -773,7 +788,7 @@ def build_widget(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> 
         if t in ("text", "password", "search"):
             return build_textarea(node, x, y, w, h, col)
         if t == "checkbox":
-            # 默认 checkbox；若 data-style="switch" 则用 Switch widget
+            # Default checkbox; data-style="switch" uses a Switch widget. 默认 checkbox；data-style="switch" 用 Switch。
             if node.get("data-style", "").lower() == "switch":
                 return build_switch(node, x, y, w, h, col)
             return build_checkbox(node, x, y, w, h, col)
@@ -789,14 +804,17 @@ def build_widget(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> 
         return build_led(node, x, y, w, h, col)
     if tag == "div":
         return build_container(node, x, y, w, h, col)
-    # 兜底
+    # Fallback. 兜底。
     return build_label(node, x, y, w, h, col)
 
 
 def layout_children(parent: Node, parent_w: int) -> list[tuple[Node, int, int, int, int]]:
-    """对 parent.children 做 HTML-like 布局，返回 [(child, x, y, w, h), ...]
-    若 parent 有 data-layout（flex），所有子元素按内容尺寸生成占位坐标，
-    LVGL flex 在运行时重新布局会覆盖这些坐标。
+    """HTML-like layout for parent.children; returns [(child, x, y, w, h), ...]
+    If parent has data-layout (flex), children get placeholder coordinates sized
+    by content; LVGL flex re-layouts at runtime and overwrites them.
+
+    对 parent.children 做 HTML-like 布局；flex 时子元素按内容尺寸占位，
+    运行时被 LVGL flex 覆盖。
     """
     layout = Layout(parent_w, 0)
     result: list[tuple[Node, int, int, int, int]] = []
@@ -821,13 +839,13 @@ def layout_children(parent: Node, parent_w: int) -> list[tuple[Node, int, int, i
             cursor_y += 8
             continue
 
-        # 用户显式指定坐标 → 直接用，不参与流式布局
+        # Explicit user coordinates → used as-is, skipping flow layout. 用户显式指定坐标 → 直接用，不参与流式布局。
         if child.has("data-x") or child.has("data-y"):
             x, y, w, h = layout.place(child, parent_w, cursor_y)
             result.append((child, x, y, w, h))
             continue
 
-        # flex 容器内：所有子元素按内容尺寸占位（LVGL flex 运行时覆盖坐标）
+        # Inside a flex container: children get content-sized placeholders (LVGL flex overrides coords at runtime). flex 容器内：子元素按内容尺寸占位。
         if flex_mode:
             w, h = layout.estimate_size(child, parent_w, default_h=40)
             result.append((child, 0, 0, w, h))
@@ -858,7 +876,7 @@ def layout_children(parent: Node, parent_w: int) -> list[tuple[Node, int, int, i
 
 def build_subtree(node: Node, x: int, y: int, w: int, h: int, col: Collector) -> dict[str, Any]:
     widget = build_widget(node, x, y, w, h, col)
-    # 容器类才递归子节点
+    # Only container types recurse into children. 容器类才递归子节点。
     if widget["type"] in ("LVGLContainerWidget", "LVGLScreenWidget"):
         for child, cx, cy, cw, ch in layout_children(node, w):
             child_obj = build_subtree(child, cx, cy, cw, ch, col)
@@ -873,7 +891,7 @@ def build_screen(body: Node, col: Collector) -> dict[str, Any]:
     sh = int(body.get("data-height", "600"))
     screen_name = body.get("data-screen", "main")
 
-    # ScreenWidget 根
+    # ScreenWidget root. ScreenWidget 根。
     screen = base_widget("LVGLScreenWidget", body, 0, 0, sw, sh)
     screen["clickableFlag"] = True
     screen["widgetFlags"] = (
@@ -885,7 +903,7 @@ def build_screen(body: Node, col: Collector) -> dict[str, Any]:
         child_obj = build_subtree(child, cx, cy, cw, ch, col)
         screen["children"].append(child_obj)
 
-    # 包装到 Page（userPages[] 条目）
+    # Wrap into a Page (a userPages[] entry). 包装到 Page（userPages[] 条目）。
     page = {
         "objID": oid(),
         "components": [screen],
@@ -929,8 +947,10 @@ def parse_ranges(spec: str) -> list[dict[str, int]]:
 
 
 def load_font_catalog() -> list[dict[str, Any]]:
-    """读取 fonts/catalog.json，返回每个字体的 EEZ font JSON 对象。
-    只读 catalog.json 和 meta.json（都 KB 级），二进制文件不进内存。
+    """Read fonts/catalog.json and return the EEZ font JSON object for each font.
+    Only catalog.json and meta.json are read (both KB-sized); binaries never enter memory.
+
+    读取 fonts/catalog.json；只读 catalog/meta（KB 级），二进制不进内存。
     """
     catalog_path = FONTS_DIR / "catalog.json"
     if not catalog_path.exists():
@@ -942,20 +962,21 @@ def load_font_catalog() -> list[dict[str, Any]]:
     for entry in catalog.get("fonts", []):
         meta_path = FONTS_DIR / entry["meta"]
         if not meta_path.exists():
-            print(f"⚠ 字体 {entry['name']} meta 缺失: {meta_path}", file=sys.stderr)
+            print(f"⚠ Font {entry['name']} meta missing: {meta_path}", file=sys.stderr)
             continue
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
 
-        # 处理图标字体合并（lvglAdditionalSources）：把外部 icon 字体也声明给 EEZ，
-        # EEZ 加载时会合并所有源字形
+        # Icon font merging (lvglAdditionalSources): declare external icon fonts to EEZ too;
+        # EEZ merges glyphs from all sources when loading.
+        # 图标字体合并：外部 icon 字体也声明给 EEZ，加载时合并字形。
         additional_sources = []
         for idx, icon in enumerate(meta.get("iconSources", [])):
             src_path = Path(icon["path"])
             if not src_path.exists():
-                print(f"⚠ 字体 {meta['name']} icon 源缺失: {src_path}", file=sys.stderr)
+                print(f"⚠ Font {meta['name']} icon source missing: {src_path}", file=sys.stderr)
                 continue
-            # 复制到 fonts/ 目录，让相对路径可解析；多源用 idx 区分
+            # Copy into fonts/ so relative paths resolve; idx distinguishes multiple sources. 复制到 fonts/ 目录；多源用 idx 区分。
             stem = src_path.stem
             dst_name = f"{meta['name']}_icons_{idx}_{stem}{src_path.suffix.lower()}" if len(meta.get("iconSources", [])) > 1 else f"{meta['name']}_icons{src_path.suffix.lower()}"
             dst_path = FONTS_DIR / dst_name
@@ -978,13 +999,13 @@ def load_font_catalog() -> list[dict[str, Any]]:
                 "size": meta["source"]["size"],
                 "threshold": meta["source"].get("threshold", 0),
             },
-            "embeddedFontFile": "",   # embedFonts=false：体积小，按需从磁盘加载
+            "embeddedFontFile": "",   # embedFonts=false: small size, loaded from disk on demand. embedFonts=false：体积小，按需加载。
             "bpp": meta["bpp"],
             "threshold": meta.get("threshold", 0),
             "height": meta["height"],
             "ascent": meta["ascent"],
             "descent": meta["descent"],
-            "glyphs": [],             # LVGL 字体用 lvglGlyphs 而非 glyphs
+            "glyphs": [],             # LVGL fonts use lvglGlyphs, not glyphs. LVGL 字体用 lvglGlyphs 而非 glyphs。
             "lvglRanges": meta.get("lvglRanges", ""),
             "lvglSymbols": meta.get("lvglSymbols", ""),
             "lvglAdditionalSources": additional_sources,
@@ -996,16 +1017,16 @@ def load_font_catalog() -> list[dict[str, Any]]:
     return fonts_json
 
 
-# ---------- .eez-project 组装 ----------
+# ---------- .eez-project assembly .eez-project 组装 ----------
 
 def build_project(body: Node, col: Collector) -> dict[str, Any]:
     sw = int(body.get("data-width", "1024"))
     sh = int(body.get("data-height", "600"))
 
-    # 先构建页面，遍历过程中填充 col.vars / col.actions
+    # Build the page first; col.vars / col.actions fill up during the walk. 先构建页面，遍历中填充 col.vars / col.actions。
     page = build_screen(body, col)
 
-    # 占位 actions（被引用但用户尚未实现的）——必须在 build_screen 之后
+    # Placeholder actions (referenced but not yet implemented by the user) — must come after build_screen. 占位 actions（被引用未实现）——必须在 build_screen 之后。
     action_objs = []
     for name in sorted(col.actions):
         action_objs.append({
@@ -1041,7 +1062,7 @@ def build_project(body: Node, col: Collector) -> dict[str, Any]:
                 "hiddenWidgetLines": "dimmed",
                 "dimmedLinesOpacity": "20",
                 "embedBitmaps": True,
-                "embedFonts": False,    # 字体不嵌入 .eez-project，从 fonts/ 目录按需加载
+                "embedFonts": False,    # fonts are not embedded in .eez-project; loaded on demand from fonts/ 字体不嵌入，从 fonts/ 按需加载。
                 "cacheFonts": False,
             },
             "build": {
@@ -1117,19 +1138,19 @@ def build_project(body: Node, col: Collector) -> dict[str, Any]:
     return project
 
 
-# ---------- 主入口 ----------
+# ---------- Main entry 主入口 ----------
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="HTML → EEZ Studio .eez-project")
-    ap.add_argument("input", help="HTML 文件路径")
-    ap.add_argument("-o", "--output", default="out.eez-project", help="输出文件")
+    ap.add_argument("input", help="path to the HTML file")
+    ap.add_argument("-o", "--output", default="out.eez-project", help="output file")
     args = ap.parse_args(argv)
 
     with open(args.input, "r", encoding="utf-8") as f:
         html_text = f.read()
 
     root = parse_html(html_text)
-    # 找 body
+    # Find <body>. 找 body。
     body = None
 
     def find(n: Node):
@@ -1142,7 +1163,7 @@ def main(argv: list[str]) -> int:
 
     find(root)
     if body is None:
-        print("HTML 缺少 <body>", file=sys.stderr)
+        print("HTML is missing <body>", file=sys.stderr)
         return 1
 
     col = Collector()
@@ -1151,14 +1172,14 @@ def main(argv: list[str]) -> int:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
-    # 控制台报告
-    print(f"✓ 生成 {args.output}")
-    print(f"  屏幕名:     {body.get('data-screen')}")
-    print(f"  分辨率:     {project['settings']['general']['displayWidth']}x{project['settings']['general']['displayHeight']}")
-    print(f"  全局变量:   {len(col.vars)} 个")
+    # Console report. 控制台报告。
+    print(f"✓ Generated {args.output}")
+    print(f"  Screen:     {body.get('data-screen')}")
+    print(f"  Resolution: {project['settings']['general']['displayWidth']}x{project['settings']['general']['displayHeight']}")
+    print(f"  Variables:  {len(col.vars)}")
     for v in col.vars.values():
         print(f"     - {v['name']:20s} : {v['type']}")
-    print(f"  引用动作:   {len(col.actions)} 个")
+    print(f"  Actions:    {len(col.actions)}")
     for a in sorted(col.actions):
         print(f"     - {a}")
     return 0
