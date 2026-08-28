@@ -68,15 +68,27 @@ python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
 
    桥监听 `127.0.0.1:17620`，在 Studio 里打开（或新建）一个工程。
 
-2. **把 MCP 服务器注册进你的客户端**（示例见 `claude_desktop_config.example.json`）：
+2. **把 MCP 服务器注册进你的客户端**（示例见 `claude_desktop_config.example.json`）。MCP 层是**双实现、可互换**——45 个工具、资源、提示词、进度通知两边完全一致：
 
-   ```json
-   {
-     "mcpServers": {
-       "eez-studio": { "command": "python", "args": ["<仓库路径>/eez_mcp_server.py"] }
+   - **Node.js（推荐）**——`mcp-server.mjs`，**零 npm 依赖**：stdio 上的 JSON-RPC 纯手写（换行分隔 JSON），只要 Node.js 18+：
+
+     ```json
+     {
+       "mcpServers": {
+         "eez-studio": { "command": "node", "args": ["<仓库路径>/mcp-server.mjs"] }
+       }
      }
-   }
-   ```
+     ```
+
+   - **Python**——`eez_mcp_server.py`，基于官方 `mcp` SDK（Python 3.10+，`pip install mcp httpx`）：
+
+     ```json
+     {
+       "mcpServers": {
+         "eez-studio": { "command": "python", "args": ["<仓库路径>/eez_mcp_server.py"] }
+       }
+     }
+     ```
 
 3. **开始对话**——比如"列出所有屏幕"、"把导航栏指示灯改成绿色并截图给我看"、"拖一下速度滑条，告诉我模拟器现在在哪个页面"。
 
@@ -95,8 +107,8 @@ python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
 ## 注意事项
 
 - 桥只监听本机回环，刻意如此。
-- 公司代理/VPN：服务器对回环请求固定 `trust_env=False`——否则系统代理会让每次调用慢 ~1.7 秒，还会饿死进度通知。
-- 需要 Python 3.10+ 和带桥的 Studio；MCP 层本身是纯 Python（Windows 实测）。
+- 公司代理/VPN：两个实现都不让回环请求走系统代理（Python 固定 `trust_env=False`；Node 版启动时清掉 `HTTP_PROXY` 类环境变量）——否则系统代理会让每次调用慢 ~1.7 秒，还会饿死进度通知。
+- 需要带桥的 Studio，外加 Node.js 18+（跑 `mcp-server.mjs`，推荐）或 Python 3.10+ 配 `mcp`/`httpx`（跑 `eez_mcp_server.py`）。两个 MCP 实现行为对齐（45 个工具、RFC 6902/7396 补丁、活资源、进度心跳），Windows 实测。
 - `fonts/` 里的字体是思源黑体（OFL）子集 + FontAwesome（OFL/CC-BY 4.0），可用 `font_tool.py` 重新生成。
 
 ## 许可

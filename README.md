@@ -68,15 +68,27 @@ python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
 
    The bridge listens on `127.0.0.1:17620`. Open or create a project.
 
-2. **Register the MCP server** with your client (see `claude_desktop_config.example.json`):
+2. **Register the MCP server** with your client (see `claude_desktop_config.example.json`). The MCP layer ships as **two interchangeable implementations** — same 45 tools, resources, prompts and progress notifications on both:
 
-   ```json
-   {
-     "mcpServers": {
-       "eez-studio": { "command": "python", "args": ["<repo>/eez_mcp_server.py"] }
+   - **Node.js (recommended)** — `mcp-server.mjs`, **zero npm dependencies**: JSON-RPC over stdio is implemented by hand (newline-delimited JSON). Needs only Node.js 18+:
+
+     ```json
+     {
+       "mcpServers": {
+         "eez-studio": { "command": "node", "args": ["<repo>/mcp-server.mjs"] }
+       }
      }
-   }
-   ```
+     ```
+
+   - **Python** — `eez_mcp_server.py`, built on the official `mcp` SDK (Python 3.10+, `pip install mcp httpx`):
+
+     ```json
+     {
+       "mcpServers": {
+         "eez-studio": { "command": "python", "args": ["<repo>/eez_mcp_server.py"] }
+       }
+     }
+     ```
 
 3. **Talk to it** — e.g. *“list the screens”*, *“change the navbar indicator to green and show me a screenshot”*, *“drag the speed slider and tell me which page the simulator is on”*.
 
@@ -95,8 +107,8 @@ Layout: manual coordinates everywhere (`x = center - w/2`), value labels in fixe
 ## Notes & gotchas
 
 - The bridge is localhost-only by design.
-- Corporate proxies/VPNs: the server pins `trust_env=False` for its loopback calls — a system proxy can otherwise add ~1.7 s per call and stall progress notifications.
-- Requires Python 3.10+ and the patched Studio; the MCP layer itself is pure Python (tested on Windows).
+- Corporate proxies/VPNs: both servers keep their loopback calls off the system proxy (Python pins `trust_env=False`; the Node server scrubs `HTTP_PROXY`-style env vars at startup) — a system proxy can otherwise add ~1.7 s per call and stall progress notifications.
+- Requires the patched Studio plus either Node.js 18+ (for `mcp-server.mjs`, recommended) or Python 3.10+ with `mcp`/`httpx` (for `eez_mcp_server.py`). The two MCP implementations are behaviorally aligned (45 tools, RFC 6902/7396 patching, live resources, progress heartbeats) and tested on Windows.
 - Fonts in `fonts/` are Source Han Sans (OFL) subsets + FontAwesome (OFL/CC-BY 4.0) — regenerable via `font_tool.py`.
 
 ## License

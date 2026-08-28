@@ -1,9 +1,9 @@
 {
-  "_comment": "Claude Desktop MCP 配置示例——放到 %APPDATA%/Claude/claude_desktop_config.json 的 mcpServers 段里",
+  "_comment": "Claude Desktop MCP 配置示例——放到 %APPDATA%/Claude/claude_desktop_config.json 的 mcpServers 段里。双实现任选其一：Node 版 mcp-server.mjs 零 npm 依赖（推荐，仅需 Node 18+）；Python 版把下面 args 换成 eez_mcp_server.py、command 换成 python（需 pip install mcp httpx）。Two interchangeable servers: Node mcp-server.mjs is the zero-dependency default; swap in eez_mcp_server.py for the Python flavor.",
   "mcpServers": {
     "eez-studio": {
-      "command": "python",
-      "args": ["<repo>/eez_mcp_server.py"],
+      "command": "node",
+      "args": ["<repo>/mcp-server.mjs"],
       "env": {
         "EEZ_BRIDGE_URL": "http://127.0.0.1:17620",
         "EEZ_WORKDIR": "<repo>"
