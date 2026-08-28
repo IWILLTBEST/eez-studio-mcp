@@ -782,30 +782,10 @@ async def list_resources() -> list[Resource]:
 ###############################################################################
 # Prompt definitions 提示词定义
 
-async def list_prompts() -> list[Prompt]:
-    return [
-        Prompt(
-            name="modify_ui",
-            description="Modify an EEZ Studio LVGL UI 修改 EEZ Studio LVGL 界面",
-            arguments=[
-                PromptArgument(name="requirement", description="What to change 要改什么", required=True),
-            ],
-        ),
-        Prompt(
-            name="create_ui",
-            description="Create a new EEZ Studio LVGL UI from a design HTML 从设计稿 HTML 创建 LVGL 界面",
-            arguments=[
-                PromptArgument(name="html_path", description="Path to the design HTML file 设计稿 HTML 文件路径", required=True),
-            ],
-        ),
-    ]
-
-async def get_prompt(name: str, arguments: dict) -> GetPromptResult:
-    schema_text = Path(WORKDIR, "IR_SCHEMA.md").read_text(encoding="utf-8")[:5000]
-    skill_text = Path(WORKDIR, "SKILL.md").read_text(encoding="utf-8")[:3000]
-
-    common = f"""== EEZ Studio LVGL Tools (via MCP bridge) ==
-== EEZ Studio LVGL 工具（经 MCP 桥调用）==
+def _prompt_common(lang: str, schema_text: str, skill_text: str) -> str:
+    """Prompt preamble: capability map + doc excerpts. English or Chinese."""
+    if lang == "zh":
+        return f"""== EEZ Studio LVGL 工具（经 MCP 桥调用）==
 
 工作流：read_ir → 修改 → compile → reload → navigate → screenshot
 
@@ -819,41 +799,105 @@ async def get_prompt(name: str, arguments: dict) -> GetPromptResult:
 - 主题预览：set_preview_theme + screenshot 逐主题验证配色
 - 新工程：create_project（最小 LVGL 模板）；结构补丁：patch_project_json（merge/jsonpatch）
 
-== IR Spec (excerpt) ==
 == IR 规范（摘要）==
 {schema_text}
 
-== Heuristic Rules (excerpt) ==
 == 经验规则（摘要）==
 {skill_text}"""
+    return f"""== EEZ Studio LVGL tools (via MCP bridge) ==
 
-    if name == "modify_ui":
+Workflow: read_ir -> edit -> compile -> reload -> navigate -> screenshot
+
+Other capabilities:
+- Diagnostics: read_output(checks/output), check, build_project, goto_object (jump to the failing object)
+- Widget-level editing: list_objects -> get_object -> update_object / create_widget / delete_object / create_screen (surgical edits by path, undoable; prefer this group for small changes instead of full rewrites)
+- Styles/themes: list_styles, update_style, create_style, delete_style, set_theme_color, add_color (take effect immediately, no reload)
+- Project file: read_project_json / write_project_json (bypasses the IR; auto-reloads after write; for large structural changes only)
+- Multi-project: list_projects, select_project, open_project (tools act on the active tab)
+- Runtime debugging: debug_start -> send_input click/swipe to test interactions, screenshot the simulator, debug_control(pause/resume/step), read/write_variable, debug_status, debug_stop
+- Theme preview: set_preview_theme + screenshot to verify each theme
+- New project: create_project (minimal LVGL template); structural patch: patch_project_json (merge/jsonpatch)
+
+== IR spec (excerpt) ==
+{schema_text}
+
+== Heuristic rules (excerpt) ==
+{skill_text}"""
+
+
+async def list_prompts() -> list[Prompt]:
+    return [
+        Prompt(
+            name="modify_ui",
+            description="Modify the current LVGL UI (English).",
+            arguments=[
+                PromptArgument(name="requirement", description="What to change", required=True),
+            ],
+        ),
+        Prompt(
+            name="modify_ui_zh",
+            description="修改当前 LVGL 界面（中文版）。",
+            arguments=[
+                PromptArgument(name="requirement", description="要改什么", required=True),
+            ],
+        ),
+        Prompt(
+            name="create_ui",
+            description="Create a new LVGL UI from an HTML mockup (English).",
+            arguments=[
+                PromptArgument(name="html_path", description="Path to the mockup HTML", required=True),
+            ],
+        ),
+        Prompt(
+            name="create_ui_zh",
+            description="从设计稿 HTML 创建新的 LVGL 界面（中文版）。",
+            arguments=[
+                PromptArgument(name="html_path", description="设计稿 HTML 文件路径", required=True),
+            ],
+        ),
+    ]
+
+
+async def get_prompt(name: str, arguments: dict) -> GetPromptResult:
+    def _read_doc(name: str, limit: int, fallback: str) -> str:
+        # Tolerate missing docs: prompts still work, just without the excerpt.
+        # 文档缺失时优雅降级：prompt 仍可用，只是少了摘要段
+        try:
+            return Path(WORKDIR, name).read_text(encoding="utf-8")[:limit]
+        except OSError:
+            return fallback
+
+    schema_text = _read_doc("IR_SCHEMA.md", 5000, "(IR_SCHEMA.md not found in EEZ_WORKDIR)")
+    skill_text = _read_doc("SKILL.md", 3000, "(SKILL.md not found in EEZ_WORKDIR)")
+
+    lang = "zh" if name.endswith("_zh") else "en"
+    common = _prompt_common(lang, schema_text, skill_text)
+    kind = name[:-3] if lang == "zh" else name
+
+    if kind == "modify_ui":
         req = arguments.get("requirement", "")
-        return GetPromptResult(
-            messages=[
-                PromptMessage(
-                    role="user",
-                    content=TextContent(
-                        type="text",
-                        text=f"{common}\n\n用户需求：{req}\n\n先用 read_ir 读当前 IR，然后用内置 edit 工具做手术式修改（小改动），改完 compile → reload → navigate → screenshot 自查。",
-                    ),
-                )
-            ]
-        )
-    elif name == "create_ui":
+        if lang == "zh":
+            tail = f"\n\n用户需求：{req}\n\n先用 read_ir 读当前 IR，然后用内置 edit 工具做手术式修改（小改动），改完 compile → reload → navigate → screenshot 自查。"
+        else:
+            tail = f"\n\nUser requirement: {req}\n\nFirst read the current IR with read_ir, make surgical edits with the built-in edit tool for small changes, then compile -> reload -> navigate -> screenshot to self-check."
+    elif kind == "create_ui":
         html_path = arguments.get("html_path", "")
-        return GetPromptResult(
-            messages=[
-                PromptMessage(
-                    role="user",
-                    content=TextContent(
-                        type="text",
-                        text=f"{common}\n\n设计稿：{html_path}\n\n读取设计稿 HTML，分析布局/颜色/文字/交互，从零创建 IR JSON（每个卡片区域用 panel 包裹），然后 compile → reload → navigate → screenshot 自查。",
-                    ),
-                )
-            ]
-        )
-    return GetPromptResult(messages=[])
+        if lang == "zh":
+            tail = f"\n\n设计稿：{html_path}\n\n读取设计稿 HTML，分析布局/颜色/文字/交互，从零创建 IR JSON（每个卡片区域用 panel 包裹），然后 compile → reload → navigate → screenshot 自查。"
+        else:
+            tail = f"\n\nMockup: {html_path}\n\nRead the mockup HTML, analyze layout/colors/text/interactions, create the IR JSON from scratch (wrap each card region in a panel), then compile -> reload -> navigate -> screenshot to self-check."
+    else:
+        return GetPromptResult(messages=[])
+
+    return GetPromptResult(
+        messages=[
+            PromptMessage(
+                role="user",
+                content=TextContent(type="text", text=common + tail),
+            )
+        ]
+    )
+
 
 ###############################################################################
 # Minimal JSON Patch (RFC 6902) & Merge Patch (RFC 7396) implementations (no third-party deps) 最小实现
