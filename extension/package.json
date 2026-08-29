@@ -1,0 +1,10 @@
+{
+    "name": "eez-studio-mcp",
+    "version": "0.1.0",
+    "displayName": "EEZ Studio MCP",
+    "author": "IWILLTBEST",
+    "description": "Local MCP bridge for AI agents: HTTP server in the main process, tool execution in the renderer. Prototype — renderer tools limited to internals-free ping/echo until requireModule lands upstream.",
+    "eez-studio": {
+        "main": "extension.js"
+    }
+}
