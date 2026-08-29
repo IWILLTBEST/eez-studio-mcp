@@ -3,12 +3,14 @@
  *
  * Dual-process extension using the IExtensionApi.fromProcess parameter
  * (eez-open/studio PR #1043):
- *   - main:     starts the opt-in localhost HTTP bridge (127.0.0.1:17620)
+ *   - main:     starts the opt-in localhost HTTP bridge (127.0.0.1:17621)
  *   - renderer: receives tool requests over Electron IPC and executes them
  *
- * Prototype scope: renderer tools are internals-free (ping/echo) — the real
- * tool library needs `api.requireModule` (explicit Studio module whitelist)
- * to be added to IExtensionApi upstream first.
+ * Studio access follows PR #1044: renderer-side extensions read editor state
+ * through explicit IExtensionApi members (getOpenProjects,
+ * getActiveProjectStore). requireModule only serves third-party packages
+ * (mobx) — it no longer hands out Studio-own modules. A legacy fallback
+ * keeps ping working on older patched runtimes where the members are absent.
  */
 
 "use strict";
@@ -131,7 +133,10 @@ function startBridgeMain() {
 // Renderer process: IPC dispatcher 渲染进程：IPC 分发器
 // ----------------------------------------------------------------------------
 
-function initRenderer() {
+let studioApi;
+
+function initRenderer(api) {
+    studioApi = api;
     const { ipcRenderer } = require("electron");
 
     ipcRenderer.on("eez-mcp-tool-request", async (_event, payload) => {
@@ -152,23 +157,65 @@ function initRenderer() {
 }
 
 // ----------------------------------------------------------------------------
-// Tool execution (prototype: internals-free tools only)
+// Tool execution (prototype: ping reads real editor state, everything else
+// waits for the full tool library)
 // ----------------------------------------------------------------------------
+
+// Open projects via the preferred explicit IExtensionApi member (PR #1044),
+// falling back to the older requireModule whitelist for runtimes that still
+// export home/tabs-store that way. Returns null when neither is available.
+function openProjects() {
+    if (studioApi && typeof studioApi.getOpenProjects === "function") {
+        return studioApi.getOpenProjects();
+    }
+    if (studioApi && typeof studioApi.requireModule === "function") {
+        try {
+            const tabsStore = studioApi.requireModule("home/tabs-store");
+            return tabsStore.tabs.tabs
+                .filter(t => t instanceof tabsStore.ProjectEditorTab)
+                .map(t => ({
+                    name: String(t.filePath || "").replace(/^.*[\\/]/, ""),
+                    filePath: t.filePath,
+                    active: t === tabsStore.tabs.activeTab
+                }));
+        } catch (err) {
+            console.warn(
+                "[eez-mcp] legacy requireModule fallback failed:",
+                err && err.message
+            );
+        }
+    }
+    return null;
+}
 
 async function executeTool(tool, args) {
     switch (tool) {
-        case "ping":
+        case "ping": {
+            const projects = openProjects();
+            const projectStore =
+                studioApi &&
+                typeof studioApi.getActiveProjectStore === "function"
+                    ? studioApi.getActiveProjectStore()
+                    : undefined;
             return {
                 pong: true,
                 from: "eez-studio-mcp extension (prototype)",
-                process: typeof window !== "undefined" ? "renderer" : "unknown"
+                process: typeof window !== "undefined" ? "renderer" : "unknown",
+                studioAccess: projects
+                    ? projects.length || "none-open"
+                    : "unavailable",
+                projects: projects || undefined,
+                activeProjectLoaded: projectStore
+                    ? !!projectStore.project
+                    : undefined
             };
+        }
         case "echo":
             return args;
         default:
             throw new Error(
                 `unknown tool in prototype: ${tool} ` +
-                    `(full tool library requires api.requireModule upstream)`
+                    `(full tool library tracks eez-open/studio PR #1044)`
             );
     }
 }
@@ -194,7 +241,7 @@ const extension = {
                 startBridgeMain();
             } else {
                 // renderer — also the fallback when api is not passed yet
-                initRenderer();
+                initRenderer(api);
             }
         } catch (err) {
             console.error("[eez-mcp] init failed:", err);
