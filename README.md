@@ -10,11 +10,11 @@ An MCP (Model Context Protocol) server + AI skill + IR compiler that lets Claude
 
 ## Screenshots
 
-All three screens below were generated from the IR compiler (`examples/motor`) and captured through the MCP `screenshot` tool — no manual touch:
+All three screens below were generated from the IR compiler (`examples/motor-en`, the English variant) and captured through the MCP `screenshot` tool — no manual touch. A Chinese-language variant lives in `examples/motor`:
 
 | Overview | Params | Alarms |
 |:---:|:---:|:---:|
-| ![overview](docs/img/motor-overview.png) | ![params](docs/img/motor-params.png) | ![alarms](docs/img/motor-alarms.png) |
+| ![overview](docs/img/motor-en-overview.png) | ![params](docs/img/motor-en-params.png) | ![alarms](docs/img/motor-en-alarms.png) |
 
 And a **per-widget close-up** (`screenshot_object` returns just one widget — handy for AI self-verification):
 
@@ -53,8 +53,8 @@ The UI binds global variables *down* (firmware changes a variable → every boun
 ```bash
 git clone https://github.com/IWILLTBEST/eez-studio-mcp && cd eez-studio-mcp
 pip install mcp httpx
-python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
-# → motor-demo.eez-project + action.h (12 native actions)
+python ir2eez.py examples/motor-en/motor-en.ir.json -o motor-demo.eez-project
+# → motor-demo.eez-project + action.h (12 native actions); 中文版: examples/motor/motor.ir.json
 ```
 
 ## Setup
@@ -102,7 +102,9 @@ python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
 | Navigation | 3 flow actions (`nav_overview/params/alarms` → changeScreen) |
 | Input up | 12 native actions wired at 24 points (sliders, arcs, switches, dropdowns, ack buttons) |
 
-Layout: manual coordinates everywhere (`x = center - w/2`), value labels in fixed-width boxes with centered text, every card wrapped in a panel. The mockup (`motor_ui.html`), the IR, and the generated project stay pixel-faithful — verified down to ±2 px.
+Layout: manual coordinates everywhere (`x = center - w/2`), value labels in fixed-width boxes with centered text, every card wrapped in a panel. The mockup (`examples/motor/motor_ui.html`), the IR, and the generated project stay pixel-faithful — verified down to ±2 px.
+
+Two language variants of the same UI: `examples/motor` (Chinese) and `examples/motor-en` (English). English text runs ~25% wider than CJK at the same font size, so the English variant widens the navbar (64 → 88 px) and re-plans every label column — a realistic demo of what localization means under a manual-coordinate layout.
 
 ## Notes & gotchas
 

@@ -102,7 +102,9 @@ python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
 | 页面导航 | 3 个 flow action（`nav_overview/params/alarms` → changeScreen） |
 | 输入上行 | 12 个 native 动作、24 处接线（滑条/弧/开关/下拉/告警确认按钮） |
 
-布局全手动坐标（`x = 参考中心 - w/2`），数值 label 固定宽盒子 + 文字居中，每个卡片 panel 包裹。效果图（`motor_ui.html`）、IR、生成工程三者像素级一致——实测误差 ±2px。
+布局全手动坐标（`x = 参考中心 - w/2`），数值 label 固定宽盒子 + 文字居中，每个卡片 panel 包裹。效果图（`examples/motor/motor_ui.html`）、IR、生成工程三者像素级一致——实测误差 ±2px。
+
+同一套界面有两个语言版本：`examples/motor`（中文）和 `examples/motor-en`（英文，见主 README 截图）。英文在同等字号下比中文宽约 25%，因此英文版把导航栏从 64px 加宽到 88px 并重排了所有标签列——这也是手动坐标布局下做本地化的真实代价展示。
 
 ## 注意事项
 
