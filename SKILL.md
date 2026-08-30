@@ -63,6 +63,17 @@ D:/.../python.exe ir2eez.py <输入.ir.json> -o <输出.eez-project>; echo exit=
 | 变量绑定的数值 label：盒子固定宽 + `align: "center"`，运行时数字宽度变化仍保持居中（默认左对齐会偏左） | 数字实际渲染宽 ≠ 估算宽 |
 | 修改走 IR 重新编译，覆盖 EEZ 手工编辑 | 单向生成 |
 
+## 吸收的外部实战经验（TrailCurrent eezstudio skill）
+
+来源：[trailcurrentoss/TrailCurrentClaudeSkills · eezstudio/SKILL.md](https://github.com/trailcurrentoss/TrailCurrentClaudeSkills/blob/main/eezstudio/SKILL.md)（MIT；Trap 编号即其原文小节）。该 skill 走"一次性脚本离线改 .eez-project + 人眼在 EEZ canvas 验证"路线，以下坑位已收编进本工具链——多数由编译器/MCP 闭环机械解决，其余为手改 JSON/patch_project_json 时的必查项。
+
+1. **开关/复选框必须带 `CHECKABLE`**（Trap 21）：缺它时有按压波纹但状态永不翻转、VALUE_CHANGED 不触发。EEZ 老版默认 flags（`oldDefaultFlags`：CLICKABLE|PRESS_LOCK...）和手写生成器最容易漏；当前 EEZ 新建默认已含。判别特征：C 里 `lv_switch_create` 动态建的能翻、EEZ/IR 生成的不能翻 = 中招。`ir2eez.py` 的 switch/checkbox 构建器已显式写入（checkbox 曾漏，2026-08 修复）。
+2. **运行时自排版控件要样式钉扎**（Trap 13）：`lv_keyboard / lv_list / lv_buttonmatrix / lv_dropdown / lv_roller / lv_tabview` 内部布局会无视 JSON 的 left/top/width/height（键盘默认锚底居中 + 半屏高），**canvas 同样复现**（canvas 模拟 LVGL 行为）。正确修法不是 C 侧 `lv_obj_set_pos`（canvas 不跑 C），而是 localStyles MAIN.DEFAULT 写 `align: TOP_LEFT` + `min_width/max_width/min_height/max_height = 授权宽高`——canvas 与设备同时生效。IR 的 dropdown 已强制显式 h；IR 未来增加 keyboard/list/tabview 时必须走钉扎模式。
+3. **装饰性子组件会吞点击**（Trap 15/16）：LVGL 命中测试停在最顶层可点后代，事件不冒泡——按钮内的 label、可点行内的图标/文字会把点击截走（症状："按钮要点角落才中"）。规则：纯展示子件 `clickableFlag: false`；整行点击目标放行容器**最后一个子节点**（z 序最高）且 `bg_opa: 0`（透明背景；别配色，换主题就穿帮）。
+4. **等宽数值盒：ceil 宽度 + longMode CLIP**（Trap 20）：adv_w/16 有亚像素（如 10.8125px/字），盒宽差 0.25px 就会 WRAP 到第二行被裁（显示 "13." 丢 "4"，长得像字体 bug）。规则：`width = ceil(len × 每字宽) + 1`，数值 label 用 `longMode: "CLIP"`。ir2eez 宽度兜底已含 +16 padding，多数场景已防住；固定宽数值盒可再显式 CLIP 双保险。
+5. **颜色集中定义，禁散落裸 hex**（其"non-negotiable rule"）：换肤/改主题时散落的 hex 全是穿帮点。其纪律：新色必须先提案命名 token（含亮/暗主题各自色值 + 是否 theme-invariant）再引用。IR 等价物：颜色集中在 themes 段，MCP `set_theme_color` 一处改全局生效；手改 JSON 时同样别在 localStyles 里新增裸 hex。
+6. **canvas 必须诚实代表设备**（Trap 14）：运行时由固件填充内容的 label，IR 里 text 留空或 "-"，别写 "Network 1..8" 假占位——用户在 canvas 看到的应与设备未填充时一致，canvas 就是设备预览。
+
 ## 交互效果模式
 
 - **选中高亮**：`states: {"CHECKED": {"bg","color"}}` + `objAddState/objClearState` 动作

@@ -568,6 +568,12 @@ class Compiler:
     def _build_checkbox(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLCheckboxWidget", n, p, x, y, w, h)
         obj["clickableFlag"] = True
+        # CHECKABLE is what makes tap-to-toggle work: without it the checkbox
+        # presses (ripple) but never flips and VALUE_CHANGED never fires.
+        # DEFAULT_FLAGS lacks it (TrailCurrent eezstudio skill "Trap 21").
+        # CHECKABLE 是点击翻转的前提：缺它时有按压反馈但状态永不翻转。
+        obj["widgetFlags"] = ("CHECKABLE|CLICKABLE|CLICK_FOCUSABLE|PRESS_LOCK|"
+                              "GESTURE_BUBBLE|SNAPPABLE")
         obj["text"] = need_str(f"{p}.text", n.get("text"), "")
         obj["textType"] = "literal"
         obj["useStaticText"] = True
