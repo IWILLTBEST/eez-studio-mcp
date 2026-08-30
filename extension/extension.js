@@ -1,16 +1,17 @@
 /*
  * eez-studio-mcp extension (prototype)
  *
- * Dual-process extension using the IExtensionApi.fromProcess parameter
- * (eez-open/studio PR #1043):
+ * Dual-process extension using the process-namespaced IExtensionApi
+ * (eez-open/studio PR #1043 + #1044):
  *   - main:     starts the opt-in localhost HTTP bridge (127.0.0.1:17621)
- *   - renderer: receives tool requests over Electron IPC and executes them
+ *   - renderer: receives tool requests over Electron IPC and executes them,
+ *               reading editor state through api.renderer.* members
+ *               (requireModule for third-party packages, getOpenProjects,
+ *               getActiveProjectStore for Studio internals)
  *
- * Studio access follows PR #1044: renderer-side extensions read editor state
- * through explicit IExtensionApi members (getOpenProjects,
- * getActiveProjectStore). requireModule only serves third-party packages
- * (mobx) — it no longer hands out Studio-own modules. A legacy fallback
- * keeps ping working on older patched runtimes where the members are absent.
+ * init() detects the runtime shape: current upstream exposes api.main /
+ * api.renderer; older patched runtimes exposed fromProcess + flat members
+ * or a requireModule module whitelist. Each is used when present.
  */
 
 "use strict";
@@ -161,16 +162,35 @@ function initRenderer(api) {
 // waits for the full tool library)
 // ----------------------------------------------------------------------------
 
-// Open projects via the preferred explicit IExtensionApi member (PR #1044),
-// falling back to the older requireModule whitelist for runtimes that still
-// export home/tabs-store that way. Returns null when neither is available.
-function openProjects() {
-    if (studioApi && typeof studioApi.getOpenProjects === "function") {
-        return studioApi.getOpenProjects();
+// The renderer side of the extension API across runtime generations:
+// current upstream nests it under api.renderer (PR #1044), older patched
+// runtimes exposed the same members flat next to fromProcess.
+function rendererApi() {
+    if (!studioApi) {
+        return undefined;
     }
-    if (studioApi && typeof studioApi.requireModule === "function") {
+    if (studioApi.renderer) {
+        return studioApi.renderer;
+    }
+    if (studioApi.getOpenProjects || studioApi.requireModule) {
+        return studioApi;
+    }
+    return undefined;
+}
+
+// Open projects via getOpenProjects() (PR #1044), falling back to the oldest
+// shape where requireModule still exported home/tabs-store. null = neither.
+function openProjects() {
+    const api = rendererApi();
+    if (!api) {
+        return null;
+    }
+    if (typeof api.getOpenProjects === "function") {
+        return api.getOpenProjects();
+    }
+    if (typeof api.requireModule === "function") {
         try {
-            const tabsStore = studioApi.requireModule("home/tabs-store");
+            const tabsStore = api.requireModule("home/tabs-store");
             return tabsStore.tabs.tabs
                 .filter(t => t instanceof tabsStore.ProjectEditorTab)
                 .map(t => ({
@@ -192,10 +212,10 @@ async function executeTool(tool, args) {
     switch (tool) {
         case "ping": {
             const projects = openProjects();
+            const api = rendererApi();
             const projectStore =
-                studioApi &&
-                typeof studioApi.getActiveProjectStore === "function"
-                    ? studioApi.getActiveProjectStore()
+                api && typeof api.getActiveProjectStore === "function"
+                    ? api.getActiveProjectStore()
                     : undefined;
             return {
                 pong: true,
@@ -237,10 +257,18 @@ const extension = {
 
     init(api) {
         try {
-            if (api && api.fromProcess === "main") {
+            // Current upstream shape: only the field for the current process
+            // is populated (api.main / api.renderer). Older runtimes passed
+            // fromProcess instead — keep that branch until the fork is
+            // rebased onto the merged API.
+            if ((api && api.renderer) || !api) {
+                // renderer — also the fallback when api is not passed yet
+                initRenderer(api);
+            } else if (api && api.main) {
+                startBridgeMain();
+            } else if (api && api.fromProcess === "main") {
                 startBridgeMain();
             } else {
-                // renderer — also the fallback when api is not passed yet
                 initRenderer(api);
             }
         } catch (err) {
