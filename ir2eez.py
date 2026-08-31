@@ -1244,6 +1244,7 @@ class Compiler:
             if repeat < -1:
                 self.err(f"{p}.repeat", "must be >= -1 (-1 = infinite)")
                 repeat = 0
+            playback = bool(step.get("playback", False))
             return {
                 "objID": oid(),
                 "action": anim_props[prop],
@@ -1265,6 +1266,8 @@ class Compiler:
                 "pathType": "literal",
                 "repeatCount": repeat,
                 "repeatCountType": "literal",
+                "playback": playback,
+                "playbackType": "literal",
             }
         self.err(p, f"lvgl action {action!r} not yet supported")
         return {"objID": oid(), "action": action}

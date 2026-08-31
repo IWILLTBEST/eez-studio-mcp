@@ -159,10 +159,10 @@ entrance_steps = [
     slide("panel_gauge", 248, 340),
     slide("panel_status", 248, 410),
     slide("panel_action", 428, 480),
-    # breathing LED: opacity pulse forever (firmware; simulator plays once)
+    # breathing LED: ping-pong opacity pulse forever (firmware; simulator plays once)
     {"op": "lvgl", "action": "anim", "target": "led_heart", "prop": "opacity",
      "from": 255, "to": 70, "time": 900, "ease": "ease_in_out",
-     "repeat": -1, "instant": True},
+     "repeat": -1, "playback": True, "instant": True},
 ]
 
 ir = {

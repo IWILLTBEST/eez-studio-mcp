@@ -90,10 +90,11 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 | `time` | ms，默认 400 | 单次时长 |
 | `ease` | `linear` `ease_in` `ease_out` `ease_in_out` `overshoot` `bounce`，默认 `ease_in_out` | 缓动曲线 |
 | `repeat` | 默认 0 | **0=播一次；N=重复 N 次（共 N+1 次）；-1=无限循环**（呼吸/常驻动效用 -1） |
+| `playback` | 默认 false | **乒乓**：正向播完自动反向（同时长），映射 `lv_anim_set_playback_duration`；呼吸灯用 `repeat:-1 + playback:true` 得到平滑往返而非跳变 |
 | `instant` | 默认 true | 立即应用起始值 |
 | `relative` | 默认 false | from/to 相对当前值 |
 
-repeat 是重播（每次从 from 重新开始），非往返（playback 未暴露）——呼吸效果用 opacity 高→低 + repeat=-1。模拟器 wasm 未重建前忽略 repeat（播一次），**固件导出完整生效**（编译到 `lv_anim_set_repeat_count`）。
+repeat 是重播（每次从 from 重新开始）；playback 才是往返。模拟器 wasm 未重建前忽略 repeat/playback（播一次），**固件导出完整生效**（上游 PR eez-open/studio#1049：`lv_anim_set_repeat_count` + `lv_anim_set_playback_duration`）。
 
 ### lv（LVGL 样式透传）
 

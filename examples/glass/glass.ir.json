@@ -723,6 +723,7 @@
           "time": 900,
           "ease": "ease_in_out",
           "repeat": -1,
+          "playback": true,
           "instant": true
         }
       ]
