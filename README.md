@@ -59,16 +59,20 @@ python ir2eez.py examples/motor-en/motor-en.ir.json -o motor-demo.eez-project
 
 ## Setup
 
-> **Status 2026-08**: the full extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)) — an installed extension now receives everything it needs: `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `activateProjectTab`, `openProject`, `requireModule`) plus three capability toolkits (object model / LVGL / assets). The [`extension/`](extension/) runs the **full 45-tool set end-to-end** on that API alone (verified against a patched build). Until a Studio release ships it, the patched fork below remains the easiest runtime.
+> **Status 2026-08**: the full extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)) — an installed extension now receives everything it needs: `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `activateProjectTab`, `openProject`, `requireModule`) plus three capability toolkits (object model / LVGL / assets). The [`extension/`](extension/) runs the **full 45-tool set end-to-end** on that API alone.
 
-1. **EEZ Studio with the bridge** — clone and run the patched fork (GPL-3.0, based on [eez-open/studio](https://github.com/eez-open/studio) v0.30.0):
+**Preferred once your Studio build includes those PRs** — install the packaged extension ([release `extension-v0.2.0`](https://github.com/IWILLTBEST/eez-studio-mcp/releases/tag/extension-v0.2.0), `.eez-extension` file) via the extensions manager, and skip the fork entirely:
+
+1. **EEZ Studio** — build [eez-open/studio](https://github.com/eez-open/studio) master (or any release after these PRs), install the `.eez-extension` from the release above, open a project. The extension's bridge listens on `127.0.0.1:17620`.
+
+   Until a Studio release ships the API, the patched fork below is the easiest runtime — it has the bridge built in, no extension needed:
 
    ```bash
    git clone https://github.com/IWILLTBEST/studio
    cd studio && npm install && npm start
    ```
 
-   The bridge listens on `127.0.0.1:17620`. Open or create a project.
+   The bridge listens on `127.0.0.1:17620` either way. Open or create a project.
 
 2. **Register the MCP server** with your client (see `claude_desktop_config.example.json`). The MCP layer ships as **two interchangeable implementations** — same 45 tools, resources, prompts and progress notifications on both:
 

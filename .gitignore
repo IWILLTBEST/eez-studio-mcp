@@ -5,3 +5,4 @@ _shots/
 *.eez-project-ui-state
 action.h
 node_modules/
+*.eez-extension
