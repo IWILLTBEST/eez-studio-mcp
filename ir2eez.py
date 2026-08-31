@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -164,7 +165,14 @@ class VarCollector:
             vtype = need_str("variables[].type", v.get("type"), "string")
             if vtype not in ("integer", "float", "double", "boolean", "string"):
                 fail(f"variables[{name!r}].type", f"unsupported type {vtype!r}")
+            # accept common aliases so a mistyped field doesn't silently zero
+            # the default (design-time preview + simulator show variable
+            # defaults). 别名兼容：字段名写错不该静默变成 0。
             default = v.get("default")
+            if default is None:
+                default = v.get("value")
+            if default is None:
+                default = v.get("init")
             if default is None:
                 default = {"string": '""', "integer": "0", "float": "0",
                            "double": "0", "boolean": "false"}[vtype]
@@ -412,14 +420,61 @@ class Compiler:
         self.vars.infer(var, vtype, default)
         return prop, var
 
+    def _preview(self, expr: str) -> str:
+        """Design-time preview: EEZ renders previewValue on the canvas, NOT the
+        expression (that one only evaluates at runtime). Substitute variable
+        defaults and safe-eval arithmetic/concatenation; on anything we can't
+        resolve (unknown identifiers, function calls) fall back to the raw
+        expression text. 设计时画布渲染的是 previewValue：用变量默认值求值，求不动就原样回退。"""
+        expr = expr.strip()
+        if not expr:
+            return ""
+
+        def fmt(v: Any) -> str:
+            if v is True:
+                return "true"
+            if v is False:
+                return "false"
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            return str(v)
+
+        # bare variable name → its default (numbers/bools pass through,
+        # quoted strings get unquoted for display)
+        if expr in self.vars.vars:
+            d = self.vars.vars[expr]["defaultValue"]
+            if len(d) >= 2 and d[0] == '"' and d[-1] == '"':
+                return json.loads(d)
+            return d
+
+        ids = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", expr))
+        if not ids or ids - set(self.vars.vars) - {"true", "false"}:
+            return expr
+        sub = re.sub(
+            r"[A-Za-z_][A-Za-z0-9_]*",
+            lambda m: (self.vars.vars[m.group(0)]["defaultValue"]
+                       if m.group(0) in self.vars.vars else
+                       ("True" if m.group(0) == "true" else "False")),
+            expr,
+        )
+        # After the identifier gate only numbers, operators, parens and quoted
+        # string contents remain, so attribute access / names are impossible —
+        # eval() here is arithmetic + concatenation only. 标识符门禁后只剩数字/
+        # 运算符/括号/字符串字面量，eval 只可能做算术和拼接。
+        try:
+            return fmt(eval(sub, {"__builtins__": {}}, {}))  # noqa: S307
+        except Exception:
+            return expr
+
     def _build_label(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLLabelWidget", n, p, x, y, w, h)
         obj["localStyles"] = self.styles_for(n, p)
         bind = self._bind(n, p, "label")
         if bind:
             obj["text"], obj["textType"] = bind[1], "expression"
-            obj["previewValue"] = str(n.get("preview", bind[1]))
-            text = str(n.get("preview", bind[1]))
+            preview = str(n.get("preview") or self._preview(bind[1]))
+            obj["previewValue"] = preview
+            text = preview
         else:
             obj["text"] = need_str(f"{p}.text", n.get("text"), "Label")
             obj["textType"] = "literal"
@@ -495,6 +550,7 @@ class Compiler:
         bind = self._bind(n, p, "bar")
         if bind:
             obj["value"], obj["valueType"] = bind[1], "expression"
+            obj["previewValue"] = str(n.get("preview") or self._preview(bind[1]))
             obj["valueStart"] = 0
             obj["valueStartType"] = "literal"
         else:
@@ -526,7 +582,7 @@ class Compiler:
         bind = self._bind(n, p, "textarea")
         if bind:
             obj["text"], obj["textType"] = bind[1], "expression"
-            obj["previewValue"] = str(n.get("preview", ""))
+            obj["previewValue"] = str(n.get("preview") or self._preview(bind[1]))
         else:
             obj["text"] = need_str(f"{p}.text", n.get("text"), "")
             obj["textType"] = "literal"
@@ -607,6 +663,7 @@ class Compiler:
         bind = self._bind(n, p, "arc")
         if bind:
             obj["value"], obj["valueType"] = bind[1], "expression"
+            obj["previewValue"] = str(n.get("preview") or self._preview(bind[1]))
         else:
             obj["value"] = need_int(f"{p}.value", n.get("value"), 25)
             obj["valueType"] = "literal"

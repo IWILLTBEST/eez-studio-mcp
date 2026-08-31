@@ -9,42 +9,42 @@
     {
       "name": "speed",
       "type": "integer",
-      "value": 1350
+      "default": 1350
     },
     {
       "name": "temp",
       "type": "integer",
-      "value": 52
+      "default": 52
     },
     {
       "name": "volt",
       "type": "integer",
-      "value": 380
+      "default": 380
     },
     {
       "name": "curr",
       "type": "double",
-      "value": 8.4
+      "default": 8.4
     },
     {
       "name": "power",
       "type": "integer",
-      "value": 72
+      "default": 72
     },
     {
       "name": "heartbeat",
       "type": "integer",
-      "value": 255
+      "default": 255
     },
     {
       "name": "warning",
       "type": "integer",
-      "value": 0
+      "default": 0
     },
     {
       "name": "fault",
       "type": "integer",
-      "value": 0
+      "default": 0
     }
   ],
   "widgets": [],

@@ -168,14 +168,14 @@ entrance_steps = [
 ir = {
     "project": {"name": "glass", "width": W, "height": H, "font": "demo_16"},
     "variables": [
-        {"name": "speed", "type": "integer", "value": 1350},
-        {"name": "temp", "type": "integer", "value": 52},
-        {"name": "volt", "type": "integer", "value": 380},
-        {"name": "curr", "type": "double", "value": 8.4},
-        {"name": "power", "type": "integer", "value": 72},
-        {"name": "heartbeat", "type": "integer", "value": 255},
-        {"name": "warning", "type": "integer", "value": 0},
-        {"name": "fault", "type": "integer", "value": 0},
+        {"name": "speed", "type": "integer", "default": 1350},
+        {"name": "temp", "type": "integer", "default": 52},
+        {"name": "volt", "type": "integer", "default": 380},
+        {"name": "curr", "type": "double", "default": 8.4},
+        {"name": "power", "type": "integer", "default": 72},
+        {"name": "heartbeat", "type": "integer", "default": 255},
+        {"name": "warning", "type": "integer", "default": 0},
+        {"name": "fault", "type": "integer", "default": 0},
     ],
     "widgets": [],
     "screens": [

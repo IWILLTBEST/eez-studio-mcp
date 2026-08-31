@@ -50,9 +50,12 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 固件里 `set_var_led_wifi(255)` 点亮 / `set_var_led_bt(80)` 变暗，
 所有页面实例化的 NavBar 里的 LED 会随 tick 自动刷新（一处改，处处变）。
 
+**设计时预览（design-time preview）**：EEZ 画布渲染的是 `previewValue`，不是表达式本身（表达式只在运行时求值）。编译器用变量默认值对 bind 表达式做安全求值写入 previewValue：裸变量 → 默认值；算术/字符串拼接可求则求；求不动（函数调用、未声明变量）原样回退。节点上的 `preview` 字段可显式覆盖。**截图比对前先确认变量 default 正确**，否则画布上显示的是变量名而不是数值。
+
 ## variables
 
 - `type`: `integer` `float` `double` `boolean` `string`
+- `default` 接受别名 `value` / `init`（字段写错不会静默变成 0）
 - `native: true`（默认）→ 生成 `get_var_xxx()` / `set_var_xxx()` extern 声明，**变量本体在固件 C 里实现**
 - string 的 default 直接写 `"Home"`（编译成 EEZ 表达式 `"\"Home\""`）
 - 被 `bind` 引用但未声明的变量自动按上表推断声明

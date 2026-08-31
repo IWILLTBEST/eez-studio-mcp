@@ -120,6 +120,11 @@ font_tool.py compile --src fonts/msyh.ttf --name <名>_<字号> --size <字号> 
 - IR 修改策略：小改动用内置 edit（手术式），大改动用 eez_write_ir（全量重写）
 - 交付后说明验证点（哪些效果要上设备看）
 
+## 截图比对前必查：变量 default
+
+- 绑定 label 的**设计时画布渲染 previewValue**（编译器按变量默认值求值），不是运行时表达式——`default` 没写对，截图里显示的就是变量名或 0，视觉比对必然误报
+- 截图前核对 IR `variables` 的 `default` 与期望显示值一致（别名 `value`/`init` 也接受，但别混用）
+
 ## 变量运行时语义
 
 - `native: true` 变量：固件实现 `get_var_xxx()/set_var_xxx()`
