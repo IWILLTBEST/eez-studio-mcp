@@ -348,6 +348,16 @@ class Compiler:
             props["radius"] = need_int(f"{path}.radius", node.get("radius"), 0)
         if node.get("bgOpa") is not None:
             props["bg_opa"] = need_int(f"{path}.bgOpa", node.get("bgOpa"), 255)
+        # align: text alignment inside the widget box — CENTER is what makes a
+        # gauge value sit on the arc's axis instead of hugging the box's left
+        # edge (box center == arc center is not enough with LEFT align).
+        # align：盒内文本对齐——仪表盘数值要居中必须 CENTER，盒子居中不够。
+        if node.get("align") is not None:
+            a = str(node["align"]).upper()
+            if a not in ("LEFT", "CENTER", "RIGHT", "AUTO"):
+                self.err(f"{path}.align", f"expected left/center/right/auto, got {node['align']!r}")
+            else:
+                props["text_align"] = a
         # lv: raw LVGL style props passthrough (shadow_*, border_*, bg_grad_*,
         # text_opa, pad_* ...). Full catalog: EEZ style-catalog / LVGL docs.
         # lv：LVGL 样式属性透传（阴影/边框/渐变/文字透明度/内边距等全目录）。

@@ -404,7 +404,8 @@
                   "y": 120,
                   "w": 100,
                   "h": 32,
-                  "font": "demo_20"
+                  "font": "demo_20",
+                  "align": "center"
                 },
                 {
                   "type": "label",

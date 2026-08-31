@@ -72,7 +72,7 @@ gauge_panel = {
         {"type": "arc", "id": "arc_power", "bind": "power", "x": 200, "y": 52, "w": 200, "h": 200,
          "min": 0, "max": 100, "color": "#5EE6C4"},
         {"type": "label", "id": "val_power", "bind": "power", "x": 250, "y": 120, "w": 100, "h": 32,
-         "font": "demo_20"},
+         "font": "demo_20", "align": "center"},
         {"type": "label", "id": "unit_power", "x": 250, "y": 156, "w": 100, "h": 18,
          "text": "%", "color": "#8FA0BC", "font": "demo_16", "align": "center"},
         {"type": "label", "id": "gauge_hint", "x": 24, "y": 284, "w": 380, "h": 18,
@@ -186,8 +186,7 @@ ir = {
     ],
 }
 
-out = os.path.join(os.path.dirname(__file__), "..", "glass.ir.json")
-out = os.path.normpath(out)
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glass.ir.json")
 with open(out, "w", encoding="utf-8", newline="") as f:
     json.dump(ir, f, ensure_ascii=False, indent=2)
 print("written:", out)
