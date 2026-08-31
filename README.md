@@ -18,7 +18,7 @@ All three screens below were generated from the IR compiler (`examples/motor-en`
 
 And a **per-widget close-up** (`screenshot_object` returns just one widget — handy for AI self-verification):
 
-<p><img src="docs/img/widget-closeup.png" width="220" alt="widget closeup"></p>
+<p><img src="docs/img/widget-closeup-en.png" width="220" alt="widget closeup"></p>
 
 ## What can the AI do?
 
