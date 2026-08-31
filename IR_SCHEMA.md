@@ -65,6 +65,8 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 { "name": "nav_home", "steps": [
     { "op": "lvgl", "action": "changeScreen", "screen": "home",
       "fade": "FADE_IN", "speed": 200, "delay": 0, "useStack": false },
+    { "op": "lvgl", "action": "anim", "target": "alarm_row1", "prop": "x",
+      "from": 10, "to": 500, "time": 500, "ease": "ease_out", "repeat": 2 },
     { "op": "set", "variable": "page_title", "value": "\"Home\"" },   // value 是 EEZ 表达式，字符串要带引号
     { "op": "delay", "ms": 200 },
     { "op": "call", "action": "另一个action名" }
@@ -73,7 +75,22 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 
 - 无 `steps` 的 action → `native` 空壳（固件 C 实现，如 `sys_reboot`）
 - 事件引用了未定义的 action → 警告 + 自动生成 native 空壳（不报错）
-- 目前 lvgl op 只实现 `changeScreen`，其余（labelSetText / animX / objAddState… 70+ 个）待扩展
+- lvgl op 已实现：`changeScreen` / `anim` / `objSetY` / `objAddState` / `objClearState` / `objAddFlag` / `objClearFlag` / `labelSetText`
+
+### anim（属性动画）
+
+| 字段 | 取值 | 说明 |
+|---|---|---|
+| `target` | 组件 id | 要动画的部件 |
+| `prop` | `x` `y` `w` `h` `opacity` `img_zoom` `img_angle` | 动画属性（w/h 为 width/height 别名） |
+| `from` / `to` | 整数 | 起止值（opacity 为 0-255） |
+| `time` | ms，默认 400 | 单次时长 |
+| `ease` | `linear` `ease_in` `ease_out` `ease_in_out` `overshoot` `bounce`，默认 `ease_in_out` | 缓动曲线 |
+| `repeat` | 默认 0 | **0=播一次；N=重复 N 次（共 N+1 次）；-1=无限循环**（呼吸/常驻动效用 -1） |
+| `instant` | 默认 true | 立即应用起始值 |
+| `relative` | 默认 false | from/to 相对当前值 |
+
+repeat 是重播（每次从 from 重新开始），非往返（playback 未暴露）——呼吸效果用 opacity 高→低 + repeat=-1。模拟器 wasm 未重建前忽略 repeat（播一次），**固件导出完整生效**（编译到 `lv_anim_set_repeat_count`）。
 
 ## 结构规范（必须遵守）
 

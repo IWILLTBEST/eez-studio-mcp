@@ -1138,6 +1138,58 @@ class Compiler:
                 "y": need_int(f"{p}.y", step.get("y"), 0),
                 "yType": "literal",
             }
+        if action == "anim":
+            # Property animation → one of the seven EEZ anim* actions.
+            # repeat: 0 = play once, -1 = infinite (maps to repeatCount,
+            # wired to lv_anim_set_repeat_count in the exported framework).
+            # 属性动画 → 七个 anim* 动作之一。repeat 0=播一次 -1=无限循环。
+            anim_props = {
+                "x": "animX", "y": "animY",
+                "w": "animWidth", "width": "animWidth",
+                "h": "animHeight", "height": "animHeight",
+                "opacity": "animOpacity",
+                "img_zoom": "animImageZoom", "img_angle": "animImageAngle",
+            }
+            anim_eases = {
+                "linear": "LINEAR", "ease_in": "EASE_IN",
+                "ease_out": "EASE_OUT", "ease_in_out": "EASE_IN_OUT",
+                "overshoot": "OVERSHOOT", "bounce": "BOUNCE",
+            }
+            prop = need_str(f"{p}.prop", step.get("prop"))
+            if prop not in anim_props:
+                self.err(f"{p}.prop", f"must be one of {sorted(anim_props)}, got {prop!r}")
+                prop = "x"
+            ease = str(step.get("ease", "ease_in_out")).lower()
+            if ease.upper() not in anim_eases.values():
+                if ease not in anim_eases:
+                    self.err(f"{p}.ease", f"must be one of {sorted(anim_eases)}, got {ease!r}")
+                ease = "ease_in_out"
+            repeat = need_int(f"{p}.repeat", step.get("repeat"), 0)
+            if repeat < -1:
+                self.err(f"{p}.repeat", "must be >= -1 (-1 = infinite)")
+                repeat = 0
+            return {
+                "objID": oid(),
+                "action": anim_props[prop],
+                "object": self._lvgl_action_target(step, p),
+                "objectType": "literal",
+                "start": need_int(f"{p}.from", step.get("from"), 0),
+                "startType": "literal",
+                "end": need_int(f"{p}.to", step.get("to"), 100),
+                "endType": "literal",
+                "delay": need_int(f"{p}.delay", step.get("delay"), 0),
+                "delayType": "literal",
+                "time": need_int(f"{p}.time", step.get("time"), 400),
+                "timeType": "literal",
+                "relative": bool(step.get("relative", False)),
+                "relativeType": "literal",
+                "instant": bool(step.get("instant", True)),
+                "instantType": "literal",
+                "path": anim_eases.get(ease, ease.upper()),
+                "pathType": "literal",
+                "repeatCount": repeat,
+                "repeatCountType": "literal",
+            }
         self.err(p, f"lvgl action {action!r} not yet supported")
         return {"objID": oid(), "action": action}
 

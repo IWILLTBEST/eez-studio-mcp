@@ -1605,10 +1605,13 @@
                   "w": 70,
                   "h": 24,
                   "events": {
-                    "clicked": "ack_alarm"
-                  }
+                    "clicked": "ack_alarm",
+                    "long_pressed": "ack_row1"
+                  },
+                  "id": "ack1"
                 }
-              ]
+              ],
+              "id": "alarm_row1"
             },
             {
               "type": "panel",
@@ -1869,6 +1872,23 @@
     },
     {
       "name": "ack_alarm"
+    },
+    {
+      "name": "ack_row1",
+      "steps": [
+        {
+          "op": "lvgl",
+          "action": "anim",
+          "target": "alarm_row1",
+          "prop": "x",
+          "from": 10,
+          "to": 500,
+          "time": 500,
+          "ease": "ease_out",
+          "instant": true,
+          "repeat": 2
+        }
+      ]
     }
   ]
 }
