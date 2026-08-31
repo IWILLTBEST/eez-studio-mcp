@@ -59,7 +59,7 @@ python ir2eez.py examples/motor-en/motor-en.ir.json -o motor-demo.eez-project
 
 ## Setup
 
-> **Status 2026-08**: the extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044)) — an installed extension now receives `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `requireModule`). The [`extension/`](extension/) prototype already runs **15 tools end-to-end** on stock-API alone; the rest track the next API round ([#1042](https://github.com/eez-open/studio/issues/1042)). Until the next Studio release ships it, the patched fork below remains the easiest runtime.
+> **Status 2026-08**: the full extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)) — an installed extension now receives everything it needs: `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `activateProjectTab`, `openProject`, `requireModule`) plus three capability toolkits (object model / LVGL / assets). The [`extension/`](extension/) runs the **full 45-tool set end-to-end** on that API alone (verified against a patched build). Until a Studio release ships it, the patched fork below remains the easiest runtime.
 
 1. **EEZ Studio with the bridge** — clone and run the patched fork (GPL-3.0, based on [eez-open/studio](https://github.com/eez-open/studio) v0.30.0):
 
