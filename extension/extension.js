@@ -16,6 +16,8 @@
 
 "use strict";
 
+const batch1 = require("./lib/tools-batch1.js");
+
 // Prototype: 17621 while the built-in fork bridge owns 17620; will become
 // 17620 once the built-in bridge is retired. 原型期与内置桥并行，正式后接管 17620
 const PORT = parseInt(process.env.EEZ_MCP_PORT || 17621, 10);
@@ -140,6 +142,16 @@ function initRenderer(api) {
     studioApi = api;
     const { ipcRenderer } = require("electron");
 
+    // mobx for the Batch-1 tools (toJS/runInAction) via requireModule
+    try {
+        const rapi = rendererApi();
+        if (rapi && typeof rapi.requireModule === "function") {
+            batch1.setMobx(rapi.requireModule("mobx"));
+        }
+    } catch (err) {
+        console.warn("[eez-mcp] mobx unavailable, tools limited:", err.message);
+    }
+
     ipcRenderer.on("eez-mcp-tool-request", async (_event, payload) => {
         let result;
         let error;
@@ -155,6 +167,16 @@ function initRenderer(api) {
     });
 
     console.log("[eez-mcp] renderer dispatcher registered");
+}
+
+// Active ProjectStore per request (store instances get replaced on reload).
+function toolContext() {
+    const api = rendererApi();
+    const store =
+        api && typeof api.getActiveProjectStore === "function"
+            ? api.getActiveProjectStore()
+            : undefined;
+    return store ? { projectStore: store } : undefined;
 }
 
 // ----------------------------------------------------------------------------
@@ -209,6 +231,7 @@ function openProjects() {
 }
 
 async function executeTool(tool, args) {
+    const a = args ?? {};
     switch (tool) {
         case "ping": {
             const projects = openProjects();
@@ -219,7 +242,7 @@ async function executeTool(tool, args) {
                     : undefined;
             return {
                 pong: true,
-                from: "eez-studio-mcp extension (prototype)",
+                from: "eez-studio-mcp extension",
                 process: typeof window !== "undefined" ? "renderer" : "unknown",
                 studioAccess: projects
                     ? projects.length || "none-open"
@@ -233,19 +256,11 @@ async function executeTool(tool, args) {
         case "echo":
             return args;
         case "list_screens": {
-            // Batch-1 architecture probe: everything reachable from the
-            // ProjectStore object graph needs no further upstream API.
-            const api = rendererApi();
-            const store =
-                api && typeof api.getActiveProjectStore === "function"
-                    ? api.getActiveProjectStore()
-                    : undefined;
-            if (!store || !store.project) {
-                throw new Error("no active project editor open");
-            }
-            const project = store.project;
+            const ctx = toolContext();
+            if (!ctx) throw new Error("no active project editor open");
+            const project = ctx.projectStore.project;
             return {
-                project: store.filePath,
+                project: ctx.projectStore.filePath,
                 screens: (project.userPages || []).map(p => ({
                     name: p.name,
                     widgets: (p.components || []).length
@@ -253,10 +268,44 @@ async function executeTool(tool, args) {
                 userWidgets: (project.userWidgets || []).map(w => w.name)
             };
         }
+
+        // ---- Batch 1: store-graph editing loop (undoable, auto-saved) ----
+        case "list_objects":
+            return batch1.listObjects(toolContext(), a.screen, a.path);
+        case "get_object":
+            return batch1.getObject(toolContext(), a.path, a.depth);
+        case "update_object":
+            return await batch1.updateObject(
+                toolContext(),
+                a.path,
+                a.properties
+            );
+        case "delete_object":
+            return await batch1.deleteObject(toolContext(), a.path);
+        case "undo":
+            return await batch1.undoProject(toolContext());
+        case "redo":
+            return await batch1.redoProject(toolContext());
+        case "navigate":
+            return batch1.navigateToScreen(toolContext(), a.screen);
+        case "goto_object":
+            return batch1.gotoObject(toolContext(), a.path);
+        case "get_selection":
+            return batch1.getSelection(toolContext());
+        case "screenshot":
+            return await batch1.screenshot(toolContext(), a.out);
+        case "read_output":
+            return batch1.readOutputSection(
+                toolContext(),
+                a.section === "checks" ? "checks" : "output"
+            );
+        case "check":
+            return await batch1.runCheck(toolContext());
+
         default:
             throw new Error(
                 `unknown tool in prototype: ${tool} ` +
-                    `(full tool library tracks eez-open/studio PR #1044)`
+                    `(batch 2 — assets/styles/multi-project/debug — tracks the next upstream API round)`
             );
     }
 }
