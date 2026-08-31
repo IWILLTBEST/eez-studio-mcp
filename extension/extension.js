@@ -302,10 +302,9 @@ async function executeTool(tool, args) {
         case "check":
             return await batch1.runCheck(toolContext());
 
-        // ---- Skeletons until activateProjectTab lands upstream (#1042).
-        // Today only the "target is already the active tab" path succeeds;
-        // anything else needs the member (or home/tabs-store via requireModule
-        // in the next API round).
+        // ---- Multi-project: activateProjectTab/openProject landed in the
+        // Batch-2 API round (eez-open/studio#1042, option B). When absent
+        // (older runtimes) only the already-active target succeeds.
         case "select_project":
         case "open_project": {
             const api = rendererApi();
@@ -323,20 +322,20 @@ async function executeTool(tool, args) {
                 target = projects.find(p => p.active) ?? null;
             }
 
+            if (a.path && !target && api && typeof api.openProject === "function") {
+                // open_project with a path that isn't open yet → open a tab
+                api.openProject(String(a.path));
+                return { opened: String(a.path), note: "opening — poll list_projects until loaded" };
+            }
             if (!target) {
                 throw new Error(
-                    `project not found among ${projects.length} open tabs`
+                    `project not found among ${projects.length} open tabs` +
+                        (api && typeof api.openProject === "function"
+                            ? ""
+                            : " and openProject is unavailable on this runtime")
                 );
             }
 
-            if (
-                api &&
-                typeof api.activateProjectTab === "function" &&
-                !target.active
-            ) {
-                api.activateProjectTab(target.filePath);
-                return { selected: target.filePath, activated: true };
-            }
             if (target.active) {
                 return {
                     selected: target.filePath,
@@ -344,10 +343,13 @@ async function executeTool(tool, args) {
                     alreadyActive: true
                 };
             }
+            if (api && typeof api.activateProjectTab === "function") {
+                api.activateProjectTab(target.filePath);
+                return { selected: target.filePath, activated: true };
+            }
             throw new Error(
                 "switching tabs needs api.renderer.activateProjectTab " +
-                    "(proposed in eez-open/studio#1042) — currently only the " +
-                    "active project can be addressed"
+                    "(Batch-2 API, eez-open/studio#1042)"
             );
         }
 
