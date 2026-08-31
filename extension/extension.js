@@ -232,6 +232,27 @@ async function executeTool(tool, args) {
         }
         case "echo":
             return args;
+        case "list_screens": {
+            // Batch-1 architecture probe: everything reachable from the
+            // ProjectStore object graph needs no further upstream API.
+            const api = rendererApi();
+            const store =
+                api && typeof api.getActiveProjectStore === "function"
+                    ? api.getActiveProjectStore()
+                    : undefined;
+            if (!store || !store.project) {
+                throw new Error("no active project editor open");
+            }
+            const project = store.project;
+            return {
+                project: store.filePath,
+                screens: (project.userPages || []).map(p => ({
+                    name: p.name,
+                    widgets: (p.components || []).length
+                })),
+                userWidgets: (project.userWidgets || []).map(w => w.name)
+            };
+        }
         default:
             throw new Error(
                 `unknown tool in prototype: ${tool} ` +
