@@ -8,7 +8,7 @@ import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 
 const BRIDGE = process.argv[2] || "http://127.0.0.1:17620";
-const SERVER = fileURLToPath(new URL("./mcp-server.mjs", import.meta.url));
+const SERVER = fileURLToPath(new URL("../mcp-server.mjs", import.meta.url));
 
 const child = spawn(process.execPath, [SERVER], {
     env: { ...process.env, EEZ_BRIDGE_URL: BRIDGE },

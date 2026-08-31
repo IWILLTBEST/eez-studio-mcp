@@ -1,9 +1,9 @@
 {
     "name": "eez-studio-mcp",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "displayName": "EEZ Studio MCP",
     "author": "IWILLTBEST",
-    "description": "Local MCP bridge for AI agents: HTTP server in the main process, tool execution in the renderer. Prototype — renderer tools limited to internals-free ping/echo until requireModule lands upstream.",
+    "description": "Local MCP bridge for AI agents: 45-tool HTTP bridge (main process) driving the running editor (renderer) through the official IExtensionApi. Requires EEZ Studio with PR #1043/#1044/#1047 (or the IWILLTBEST fork).",
     "eez-studio": {
         "main": "extension.js"
     }
