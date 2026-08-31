@@ -302,6 +302,55 @@ async function executeTool(tool, args) {
         case "check":
             return await batch1.runCheck(toolContext());
 
+        // ---- Skeletons until activateProjectTab lands upstream (#1042).
+        // Today only the "target is already the active tab" path succeeds;
+        // anything else needs the member (or home/tabs-store via requireModule
+        // in the next API round).
+        case "select_project":
+        case "open_project": {
+            const api = rendererApi();
+            const projects = openProjects() || [];
+            let target = null;
+            if (typeof a.index === "number") {
+                target = projects[a.index] ?? null;
+            } else if (a.path || a.project) {
+                const want = String(a.path ?? a.project);
+                target =
+                    projects.find(p => p.filePath === want) ??
+                    projects.find(p => p.name === want) ??
+                    null;
+            } else {
+                target = projects.find(p => p.active) ?? null;
+            }
+
+            if (!target) {
+                throw new Error(
+                    `project not found among ${projects.length} open tabs`
+                );
+            }
+
+            if (
+                api &&
+                typeof api.activateProjectTab === "function" &&
+                !target.active
+            ) {
+                api.activateProjectTab(target.filePath);
+                return { selected: target.filePath, activated: true };
+            }
+            if (target.active) {
+                return {
+                    selected: target.filePath,
+                    activated: false,
+                    alreadyActive: true
+                };
+            }
+            throw new Error(
+                "switching tabs needs api.renderer.activateProjectTab " +
+                    "(proposed in eez-open/studio#1042) — currently only the " +
+                    "active project can be addressed"
+            );
+        }
+
         default:
             throw new Error(
                 `unknown tool in prototype: ${tool} ` +

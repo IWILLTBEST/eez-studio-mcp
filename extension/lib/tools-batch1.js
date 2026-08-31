@@ -509,7 +509,10 @@ async function screenshot(ctx, out) {
     if (out) {
         file = out;
     } else {
-        const dir = path.join(path.dirname(ctx.projectStore.filePath || "."), "_shots");
+        const dir = path.join(
+            path.dirname(ctx.projectStore.filePath || "."),
+            "_shots"
+        );
         fs.mkdirSync(dir, { recursive: true });
         file = path.join(
             dir,
@@ -517,7 +520,9 @@ async function screenshot(ctx, out) {
         );
     }
     fs.writeFileSync(file, Buffer.from(dataUrl.split(",")[1], "base64"));
-    return { file, bytes: fs.statSync(file).size };
+    // Contract shared with the fork-internal bridge: {dataUrl, file} — the
+    // MCP servers split the base64 payload off the dataUrl for image blocks.
+    return { dataUrl, file, bytes: fs.statSync(file).size };
 }
 
 // ---------------------------------------------------------------------------
