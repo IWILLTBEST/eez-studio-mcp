@@ -17,6 +17,7 @@
 "use strict";
 
 const batch1 = require("./lib/tools-batch1.js");
+const batch2 = require("./lib/tools-batch2.js");
 
 // Prototype: 17621 while the built-in fork bridge owns 17620; will become
 // 17620 once the built-in bridge is retired. 原型期与内置桥并行，正式后接管 17620
@@ -142,15 +143,17 @@ function initRenderer(api) {
     studioApi = api;
     const { ipcRenderer } = require("electron");
 
-    // mobx for the Batch-1 tools (toJS/runInAction) via requireModule
+    // mobx for the tools (toJS/runInAction) via requireModule — batch2.setMobx
+    // forwards to batch1 as well
     try {
         const rapi = rendererApi();
         if (rapi && typeof rapi.requireModule === "function") {
-            batch1.setMobx(rapi.requireModule("mobx"));
+            batch2.setMobx(rapi.requireModule("mobx"));
         }
     } catch (err) {
         console.warn("[eez-mcp] mobx unavailable, tools limited:", err.message);
     }
+    batch2.setRendererApiGetter(rendererApi);
 
     ipcRenderer.on("eez-mcp-tool-request", async (_event, payload) => {
         let result;
@@ -294,6 +297,12 @@ async function executeTool(tool, args) {
             return batch1.getSelection(toolContext());
         case "screenshot":
             return await batch1.screenshot(toolContext(), a.out);
+        case "screenshot_object":
+            return await batch2.screenshotObject(
+                toolContext(),
+                a.path,
+                a.padding
+            );
         case "read_output":
             return batch1.readOutputSection(
                 toolContext(),
@@ -301,6 +310,115 @@ async function executeTool(tool, args) {
             );
         case "check":
             return await batch1.runCheck(toolContext());
+        case "build_project":
+            return await batch2.runBuild(toolContext());
+
+        // ---- styles & themes ----
+        case "list_styles":
+            return batch2.listStyles(toolContext());
+        case "update_style":
+            return await batch2.updateStyle(
+                toolContext(),
+                a.style,
+                a.part,
+                a.state,
+                a.properties
+            );
+        case "create_style":
+            return await batch2.createStyle(
+                toolContext(),
+                a.name,
+                a.forWidgetType
+            );
+        case "delete_style":
+            return await batch2.deleteStyle(toolContext(), a.name);
+        case "set_theme_color":
+            return await batch2.setThemeColor(
+                toolContext(),
+                a.color,
+                a.value,
+                a.theme
+            );
+        case "add_color":
+            return await batch2.addThemeColor(
+                toolContext(),
+                a.name,
+                a.value
+            );
+        case "set_preview_theme":
+            return batch2.setPreviewTheme(toolContext(), a.theme);
+
+        // ---- creation ----
+        case "create_widget":
+            return await batch2.createWidget(
+                toolContext(),
+                a.type,
+                a.parent,
+                a.properties
+            );
+        case "create_screen":
+            return await batch2.createScreen(
+                toolContext(),
+                a.name,
+                a.width,
+                a.height
+            );
+
+        // ---- assets ----
+        case "list_assets":
+            return batch2.listAssets(toolContext());
+        case "add_font":
+            return await batch2.addFont(
+                toolContext(),
+                a.name,
+                a.ttf,
+                a.size,
+                a.bpp,
+                a.ranges,
+                a.symbols
+            );
+        case "add_image":
+            return await batch2.addImage(
+                toolContext(),
+                a.image,
+                a.name,
+                a.bpp
+            );
+
+        // ---- runtime debug / variables / input ----
+        case "debug_status":
+            return batch2.debugStatus(toolContext());
+        case "debug_start":
+            return await batch2.debugStart(toolContext(), a.mode);
+        case "debug_stop":
+            return await batch2.debugStop(toolContext());
+        case "debug_control":
+            return await batch2.debugControl(toolContext(), a.op);
+        case "read_variable":
+            return batch2.readVariable(toolContext(), a.name);
+        case "write_variable":
+            return batch2.writeVariable(toolContext(), a.name, a.value);
+        case "send_input":
+            return await batch2.sendInput(
+                toolContext(),
+                a.op,
+                a.x,
+                a.y,
+                a.dx,
+                a.dy
+            );
+
+        // ---- project file IO ----
+        case "read_project_json":
+            return batch2.readProjectJson(toolContext());
+        case "write_project_json":
+            return await batch2.writeProjectJson(
+                toolContext(),
+                a.content,
+                a.reload !== false
+            );
+        case "reload":
+            return await batch2.reloadProject(toolContext());
 
         // ---- Multi-project: activateProjectTab/openProject landed in the
         // Batch-2 API round (eez-open/studio#1042, option B). When absent
