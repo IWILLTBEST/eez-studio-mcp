@@ -16,6 +16,10 @@ All three screens below were generated from the IR compiler (`examples/motor-en`
 |:---:|:---:|:---:|
 | ![overview](docs/img/motor-en-overview.png) | ![params](docs/img/motor-en-params.png) | ![alarms](docs/img/motor-en-alarms.png) |
 
+And a **glassmorphism + entrance-animation showcase** ([examples/glass](examples/glass) — translucent cards, shadows, gradient background, staggered entrance via the IR `anim` verb; press **Replay** in the simulator):
+
+<p><img src="docs/img/glass-dashboard.png" width="480" alt="glass dashboard"></p>
+
 And a **per-widget close-up** (`screenshot_object` returns just one widget — handy for AI self-verification):
 
 <p><img src="docs/img/widget-closeup-en.png" width="220" alt="widget closeup"></p>

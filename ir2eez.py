@@ -340,6 +340,15 @@ class Compiler:
             props["radius"] = need_int(f"{path}.radius", node.get("radius"), 0)
         if node.get("bgOpa") is not None:
             props["bg_opa"] = need_int(f"{path}.bgOpa", node.get("bgOpa"), 255)
+        # lv: raw LVGL style props passthrough (shadow_*, border_*, bg_grad_*,
+        # text_opa, pad_* ...). Full catalog: EEZ style-catalog / LVGL docs.
+        # lv：LVGL 样式属性透传（阴影/边框/渐变/文字透明度/内边距等全目录）。
+        if isinstance(node.get("lv"), dict):
+            for k, v in node["lv"].items():
+                if not isinstance(k, str) or not k.replace("_", "").isalnum():
+                    self.err(f"{path}.lv[{k!r}]", "invalid style property name")
+                    continue
+                props[k] = v
         definition: dict[str, Any] = {}
         if props:
             definition["MAIN"] = {"DEFAULT": props}
