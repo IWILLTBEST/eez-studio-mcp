@@ -92,6 +92,19 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 
 repeat 是重播（每次从 from 重新开始），非往返（playback 未暴露）——呼吸效果用 opacity 高→低 + repeat=-1。模拟器 wasm 未重建前忽略 repeat（播一次），**固件导出完整生效**（编译到 `lv_anim_set_repeat_count`）。
 
+### lv（LVGL 样式透传）
+
+节点上的 `"lv": {...}` 把任意 LVGL 样式属性直接写进 localStyles MAIN.DEFAULT——阴影、边框、渐变、文字透明度、内边距全目录：
+
+```jsonc
+{ "type": "panel", ..., "bg": "#1B2436", "bgOpa": 150, "radius": 16,
+  "lv": { "border_width": 1, "border_color": "#9FB2D8", "border_opa": 40,
+          "shadow_width": 26, "shadow_spread": 3, "shadow_color": "#000000", "shadow_opa": 130,
+          "bg_grad_color": "#05080F", "bg_grad_dir": "VER" } }
+```
+
+玻璃拟态配方（见 examples/glass）：半透明底（bgOpa 130-170）+ 1px 低透明边框 + 大柔和阴影 + 圆角 14-18。属性名以 EEZ style-catalog / LVGL 文档为准。
+
 ## 结构规范（必须遵守）
 
 1. **相同功能的组件组成 panel**：功能内聚的组件包进一个 panel（如：一个通道的 canvas + 通道号/电极/数值

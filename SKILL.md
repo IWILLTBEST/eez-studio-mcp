@@ -82,6 +82,7 @@ D:/.../python.exe ir2eez.py <输入.ir.json> -o <输出.eez-project>; echo exit=
 - **切屏动画**：changeScreen 的 `fade`（MOVE_LEFT/FADE_IN 等）+ `speed`
 - **对象位置移动**：`objSetY` 动作（如移动指示条）——但在 user widget 内不跨屏同步
 - **组件位置**：`objSetX/objSetY` 动作（target + x/y 参数）
+- **玻璃拟态**：`bgOpa:130-170` + `radius:16` + `lv:{border_width:1,border_opa:40,shadow_width:26,shadow_spread:3,shadow_opa:130}`；背景渐变 `lv:{bg_grad_color,bg_grad_dir:VER}`；照抄 examples/glass
 - **属性动画**：`{"op":"lvgl","action":"anim","target":id,"prop":"x|y|w|h|opacity|img_zoom|img_angle","from":..,"to":..,"time":ms,"ease":"ease_out","repeat":N}`——repeat 0=一次/N=重复N次/-1=无限循环（呼吸灯用 opacity+repeat:-1）；编译到 animX 等 7 个动作 + `lv_anim_set_repeat_count`。repeat 仅重播非往返；模拟器 wasm 重建前忽略 repeat（播一次），固件导出完整生效。入场动画=anim ease_out，退场=animX 滑出，强调=animOpacity 脉冲
 - **native 动作（固件接口）**：IR 里声明 `{"name": "on_xxx"}` 不带 steps → 编译为 `implementationType: "native"`；滑条/弧/开关/下拉绑 `value_changed` 事件、按钮绑 `clicked`。编译同时产出 `action.h`（与输出工程同目录）：值变化类 `void on_xxx(int32_t value)`（滑条/弧=当前值，开关=0/1，下拉=选项索引），点击类 `void xxx(void)`。固件 include 后实现即完成移植
 
