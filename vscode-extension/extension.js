@@ -408,7 +408,7 @@ class PreviewProvider {
             this.panel.onDidDispose(() => { this.panel = null; this.currentFile = null; });
             this.panel.webview.onDidReceiveMessage((m) => {
                 if (m.command === "screen") { this.screen = m.screen; this.refreshPixel(); }
-                if (m.command === "mode") { this.mode = m.mode; if (m.mode === "pixel") this.refreshPixel(); }
+                if (m.command === "mode") { this.mode = m.mode; if (m.mode === "pixel") this.refreshPixel(); else this.pushSketch(); }
             });
         }
         this.panel.reveal();
