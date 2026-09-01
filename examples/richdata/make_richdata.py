@@ -60,6 +60,52 @@ ir = {
 # wire the roller event (value_changed fires when the user scrolls)
 ir["screens"][0]["children"][0]["children"][2]["events"] = {"value_changed": "on_mode_change"}
 
+# --- screen 2: scale / calendar / spinbox / keyboard ---
+ir["screens"].append({
+    "name": "controls",
+    "children": [{
+        "type": "panel", "id": "root2", "x": 0, "y": 0, "w": W, "h": H,
+        "bg": "#101828",
+        "children": [
+            {"type": "label", "id": "title2", "x": 24, "y": 16, "w": 300, "h": 24,
+             "text": "Controls Demo", "font": "demo_20", "color": "#E8EFFA"},
+
+            # --- Scale (LVGL 9 gauge; lv_meter replacement) ---
+            {"type": "label", "id": "lbl_scale", "x": 24, "y": 52, "w": 200, "h": 18,
+             "text": "RPM scale", "color": "#8FA0BC"},
+            {"type": "scale", "id": "rpm", "mode": "round_inner",
+             "min": 0, "max": 3000, "angle": 270, "rotate": 135,
+             "ticks": 11, "major": 5,
+             "sections": [
+                 {"from": 0, "to": 2200, "color": "#3A4B66", "width": 8},
+                 {"from": 2200, "to": 2600, "color": "#F2B84B", "width": 8},
+                 {"from": 2600, "to": 3000, "color": "#E5484D", "width": 8}],
+             "x": 24, "y": 74, "w": 180, "h": 180},
+
+            # --- Calendar ---
+            {"type": "calendar", "id": "cal", "today": "2026-09-01",
+             "header": "arrow",
+             "x": 240, "y": 74, "w": 210, "h": 210},
+
+            # --- Spinbox (bound value) ---
+            {"type": "label", "id": "lbl_count", "x": 24, "y": 286, "w": 200, "h": 18,
+             "text": "Pulse count", "color": "#8FA0BC"},
+            {"type": "spinbox", "id": "count", "bind": "mode_idx",
+             "min": 0, "max": 9999, "digits": 4,
+             "x": 24, "y": 308, "w": 130, "h": 46, "bg": "#1A2438"},
+
+            # --- Keyboard + textarea ---
+            {"type": "textarea", "id": "input", "text": "",
+             "x": 24, "y": 374, "w": 432, "h": 44, "bg": "#0B1220"},
+            {"type": "keyboard", "id": "kb", "textarea": "input",
+             "mode": "number",
+             "x": 24, "y": 426, "w": 432, "h": 190},
+        ],
+    }],
+})
+ir["variables"].append({"name": "pulse_count", "type": "integer", "default": 42})
+ir["screens"][1]["children"][0]["children"][5]["bind"] = "pulse_count"
+
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "richdata.ir.json")
 with open(out, "w", encoding="utf-8", newline="") as f:
     json.dump(ir, f, ensure_ascii=False, indent=1)

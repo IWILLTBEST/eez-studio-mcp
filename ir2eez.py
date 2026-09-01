@@ -122,6 +122,10 @@ DEFAULT_SIZE: dict[str, tuple[int, int]] = {
     "roller": (100, 100),
     "table": (240, 120),
     "chart": (260, 150),
+    "scale": (200, 160),
+    "calendar": (230, 240),
+    "keyboard": (300, 120),
+    "spinbox": (180, 60),
 }
 
 # Property bound per widget type & inferred variable type. bind 到不同 widget 时绑定的属性 & 推断变量类型
@@ -139,6 +143,7 @@ BIND_TARGET: dict[str, tuple[str, str, str]] = {
     # variable changes and the widget writes the variable on VALUE_CHANGED.
     # roller 的 selected 可写：变量变化→rollerSetSelected，VALUE_CHANGED→写变量。
     "roller": ("selected", "integer", "0"),
+    "spinbox": ("value", "integer", "0"),
 }
 
 
@@ -169,6 +174,10 @@ _TYPE_PREFIX = {
     "LVGLRollerWidget": "roller_",
     "LVGLTableWidget": "table_",
     "LVGLChartWidget": "chart_",
+    "LVGLScaleWidget": "scale_",
+    "LVGLCalendarWidget": "calendar_",
+    "LVGLKeyboardWidget": "keyboard_",
+    "LVGLSpinboxWidget": "spinbox_",
 }
 
 
@@ -860,6 +869,121 @@ class Compiler:
         self.rich_widgets.append({"kind": "chart", "id": obj.get("identifier", ""),
                                   "chart_kind": kind, "min": vmin, "max": vmax,
                                   "points": points, "series": names})
+        return obj
+
+    _SCALE_MODES = ("HORIZONTAL_TOP", "HORIZONTAL_BOTTOM", "VERTICAL_LEFT",
+                    "VERTICAL_RIGHT", "ROUND_INNER", "ROUND_OUTER")
+    _KB_MODES = ("TEXT_LOWER", "TEXT_UPPER", "SPECIAL", "NUMBER",
+                 "USER_1", "USER_2", "USER_3", "USER_4")
+
+    def _build_scale(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        """LVGL 9 lv_scale — fully compiled (mode/range/angle/ticks/labels/sections).
+        The LVGL 8 lv_meter equivalent is palette-disabled in 9.x projects.
+        lv_scale 完整编译（8.x 的 meter 在 9.x 工程里被禁用，scale 是正主）。"""
+        obj = self.base("LVGLScaleWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        mode = str(n.get("mode", "round_inner")).upper()
+        if mode not in self._SCALE_MODES:
+            self.err(f"{p}.mode", f"must be one of {[m.lower() for m in self._SCALE_MODES]}, got {n.get('mode')!r}")
+            mode = "ROUND_INNER"
+        obj["scaleMode"] = mode
+        vmin = need_int(f"{p}.min", n.get("min"), 0)
+        vmax = need_int(f"{p}.max", n.get("max"), 100)
+        if vmin >= vmax:
+            self.err(f"{p}", f"min must be < max, got {vmin}..{vmax}")
+        angle = need_int(f"{p}.angle", n.get("angle"), 270)
+        if not (0 <= angle <= 360):
+            self.err(f"{p}.angle", f"must be 0..360, got {angle}")
+            angle = 270
+        obj["minValue"], obj["minValueType"] = vmin, "literal"
+        obj["maxValue"], obj["maxValueType"] = vmax, "literal"
+        obj["angleRange"] = angle
+        obj["rotation"], obj["rotationType"] = need_int(f"{p}.rotate", n.get("rotate"), 135), "literal"
+        obj["totalTickCount"] = need_int(f"{p}.ticks", n.get("ticks"), 11)
+        obj["majorTickEvery"] = need_int(f"{p}.major", n.get("major"), 5)
+        obj["showLabels"] = bool(n.get("labels", True))
+        obj["labelTexts"] = str(n.get("labelTexts", ""))
+        obj["postDraw"] = False
+        obj["drawTicksOnTop"] = False
+        sections = []
+        for i, s in enumerate(n.get("sections") or []):
+            if not isinstance(s, dict):
+                self.err(f"{p}.sections[{i}]", "expected object {from, to, color, width}")
+                continue
+            smin = need_int(f"{p}.sections[{i}].from", s.get("from"), vmin)
+            smax = need_int(f"{p}.sections[{i}].to", s.get("to"), vmax)
+            if smin >= smax:
+                self.err(f"{p}.sections[{i}]", f"from must be < to, got {smin}..{smax}")
+            sections.append({
+                "objID": oid(),
+                "minValue": smin, "minValueType": "literal",
+                "maxValue": smax, "maxValueType": "literal",
+                "useStyle": "",
+                "mainColor": normalize_color(str(s.get("color", "#E5484D"))),
+                "mainWidth": need_int(f"{p}.sections[{i}].width", s.get("width"), 6),
+            })
+        obj["sections"] = sections
+        obj["localStyles"] = self.styles_for(n, p)
+        return obj
+
+    def _build_calendar(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        obj = self.base("LVGLCalendarWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        today = str(n.get("today", "2026-01-01"))
+        try:
+            yy, mm, dd = (int(v) for v in today.split("-"))
+            if not (1 <= mm <= 12 and 1 <= dd <= 31):
+                raise ValueError
+        except ValueError:
+            self.err(f"{p}.today", f"expected YYYY-MM-DD, got {today!r}")
+            yy, mm, dd = 2026, 1, 1
+        obj["todayYear"], obj["todayMonth"], obj["todayDay"] = yy, mm, dd
+        header = str(n.get("header", "arrow")).capitalize()
+        if header not in ("None", "Arrow", "Dropdown"):
+            self.err(f"{p}.header", f"must be none/arrow/dropdown, got {n.get('header')!r}")
+            header = "Arrow"
+        obj["header"] = header
+        obj["chineseMode"] = bool(n.get("chinese", False))
+        return obj
+
+    def _build_keyboard(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        obj = self.base("LVGLKeyboardWidget", n, p, x, y, w, h)
+        ta = need_str(f"{p}.textarea", n.get("textarea"), "")
+        if ta:
+            target = self.id_map.get(ta, ta)
+            if target not in self.known_ids or not target.startswith("textarea_"):
+                self.err(f"{p}.textarea",
+                         f"{ta!r} is not a textarea identifier (give the textarea an id first)")
+                ta = ""
+            else:
+                ta = target
+        obj["textarea"] = ta
+        mode = str(n.get("mode", "text_lower")).upper()
+        if mode not in self._KB_MODES:
+            self.err(f"{p}.mode", f"must be one of {[m.lower() for m in self._KB_MODES]}, got {n.get('mode')!r}")
+            mode = "TEXT_LOWER"
+        obj["mode"] = mode
+        return obj
+
+    def _build_spinbox(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        obj = self.base("LVGLSpinboxWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        vmin = need_int(f"{p}.min", n.get("min"), -99999)
+        vmax = need_int(f"{p}.max", n.get("max"), 99999)
+        if vmin >= vmax:
+            self.err(f"{p}", f"min must be < max, got {vmin}..{vmax}")
+        obj["min"], obj["minType"] = vmin, "literal"
+        obj["max"], obj["maxType"] = vmax, "literal"
+        obj["digitCount"] = need_int(f"{p}.digits", n.get("digits"), 5)
+        obj["separatorPosition"] = need_int(f"{p}.separator", n.get("separator"), 0)
+        obj["rollover"] = bool(n.get("rollover", False))
+        obj["step"], obj["stepType"] = need_int(f"{p}.step", n.get("step"), 1), "literal"
+        bind = self._bind(n, p, "spinbox")
+        if bind:
+            obj["value"], obj["valueType"] = bind[1], "expression"
+        else:
+            obj["value"] = need_int(f"{p}.value", n.get("value"), 0)
+            obj["valueType"] = "literal"
         return obj
 
     def _build_canvas(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:

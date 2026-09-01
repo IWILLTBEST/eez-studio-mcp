@@ -38,7 +38,7 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 
 | 字段 | 说明 |
 |---|---|
-| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` `roller` `table` `chart` |
+| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` `roller` `table` `chart` `scale` `calendar` `keyboard` `spinbox` |
 | `widget` | user widget 实例：`{"widget": "NavBar", "x": 0, "y": 0}`（此时不用 type，不能带 children） |
 | `id` | → EEZ identifier，供 C 代码 / LVGL action 引用 |
 | `x` `y` `w` `h` | 显式坐标尺寸；缺省时按布局规则推导。**坐标一律相对父容器**（LVGL 语义，无全局坐标）：user widget 的 children 坐标相对 widget 自身（如 NavBar 宽 800 时，右端 LED 的 x 按 800 算，不按屏幕宽算）；实例换位置/换屏幕，内容整体跟随 |
@@ -94,6 +94,28 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 ```
 
 固件接线（三行）：`ui_init()` 后调 `ui_ext_init()`——内部按常量配好 chart 类型/量程/点数/序列、table 行列并填表头；喂数据调 `chart_bus_push(series_idx, value)`（`lv_chart_set_next_value` 滚动模式）。画布上 chart/table 是空矩形（运行时才有内容）——视觉比对时这是预期。示例见 examples/richdata。
+
+**其余四个全部完整编译**（examples/richdata 第二屏 controls）：
+
+```jsonc
+{ "type": "scale", "id": "rpm", "mode": "round_inner",   // horizontal_top/bottom, vertical_left/right, round_inner/outer
+  "min": 0, "max": 3000, "angle": 270, "rotate": 135,    // angleRange + 起始角
+  "ticks": 11, "major": 5, "labels": true,
+  "sections": [ {"from": 2600, "to": 3000, "color": "#E5484D", "width": 8} ] }  // 分段着色
+
+{ "type": "calendar", "id": "cal", "today": "2026-09-01", "header": "arrow", "chinese": false }
+
+{ "type": "keyboard", "id": "kb", "textarea": "input", "mode": "number" }
+                                 // ↑ textarea 的 IR 短 id；mode: text_lower/text_upper/special/number/user_1..4
+
+{ "type": "spinbox", "id": "count", "bind": "pulse_count", "min": 0, "max": 9999,
+  "digits": 4, "separator": 0, "step": 1, "rollover": false }
+```
+
+- **scale** 是 LVGL 9 的刻度盘（8.x 的 meter 在 9.x 工程被 EEZ 禁用，别用）——模式/量程/角度/刻度/标签/分段全进工程
+- **calendar** 的 `today` 设当前日期，`header` 为 none/arrow/dropdown；运行时换日期用动作 `calendarSetTodayDate` 等
+- **keyboard** 必须先给 textarea 一个 id 再引用；`mode: number` 出数字键盘
+- **spinbox** 的 `bind` 绑 value（EEZ 标记 assignable），`digits` 位数、`rollover` 循环越界
 
 ## variables
 
