@@ -106,6 +106,37 @@ ir["screens"].append({
 ir["variables"].append({"name": "pulse_count", "type": "integer", "default": 42})
 ir["screens"][1]["children"][0]["children"][5]["bind"] = "pulse_count"
 
+# --- screen 3: tabview (EEZ-native tabs, bindable selectedTab) ---
+ir["screens"].append({
+    "name": "settings",
+    "children": [{
+        "type": "panel", "id": "root3", "x": 0, "y": 0, "w": W, "h": H,
+        "bg": "#101828",
+        "children": [
+            {"type": "tabview", "id": "cfg", "bind": "mode_idx",
+             "position": "top", "barSize": 44,
+             "x": 16, "y": 16, "w": 448, "h": 420,
+             "events": {"value_changed": "on_mode_change"},
+             "tabs": [
+                 {"title": "Display", "children": [
+                     {"type": "label", "id": "t1a", "x": 16, "y": 16, "w": 200, "h": 20,
+                      "text": "Brightness", "color": "#8FA0BC"},
+                     {"type": "slider", "id": "bright", "x": 16, "y": 44, "w": 320, "h": 12},
+                     {"type": "label", "id": "t1b", "x": 16, "y": 76, "w": 200, "h": 20,
+                      "text": "Theme: Dark", "color": "#5EE6C4"},
+                 ]},
+                 {"title": "Network", "children": [
+                     {"type": "label", "id": "t2a", "x": 16, "y": 16, "w": 300, "h": 20,
+                      "text": "Host: 192.168.1.10", "color": "#8FA0BC"},
+                     {"type": "label", "id": "t2b", "x": 16, "y": 44, "w": 300, "h": 20,
+                      "text": "Port: 502", "color": "#8FA0BC"},
+                     {"type": "switch", "id": "dhcp", "x": 340, "y": 12, "w": 50, "h": 25},
+                 ]},
+             ]},
+        ],
+    }],
+})
+
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "richdata.ir.json")
 with open(out, "w", encoding="utf-8", newline="") as f:
     json.dump(ir, f, ensure_ascii=False, indent=1)

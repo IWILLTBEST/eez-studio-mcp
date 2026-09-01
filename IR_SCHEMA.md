@@ -38,7 +38,7 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 
 | 字段 | 说明 |
 |---|---|
-| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` `roller` `table` `chart` `scale` `calendar` `keyboard` `spinbox` |
+| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` `roller` `table` `chart` `scale` `calendar` `keyboard` `spinbox` `tabview` |
 | `widget` | user widget 实例：`{"widget": "NavBar", "x": 0, "y": 0}`（此时不用 type，不能带 children） |
 | `id` | → EEZ identifier，供 C 代码 / LVGL action 引用 |
 | `x` `y` `w` `h` | 显式坐标尺寸；缺省时按布局规则推导。**坐标一律相对父容器**（LVGL 语义，无全局坐标）：user widget 的 children 坐标相对 widget 自身（如 NavBar 宽 800 时，右端 LED 的 x 按 800 算，不按屏幕宽算）；实例换位置/换屏幕，内容整体跟随 |
@@ -113,9 +113,22 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 ```
 
 - **scale** 是 LVGL 9 的刻度盘（8.x 的 meter 在 9.x 工程被 EEZ 禁用，别用）——模式/量程/角度/刻度/标签/分段全进工程
-- **calendar** 的 `today` 设当前日期，`header` 为 none/arrow/dropdown；运行时换日期用动作 `calendarSetTodayDate` 等
+- **calendar** 的 `today` 设当前日期，`header` 为 none/arrow/dropdown；运行时换日期用动作 `calendarSetTodayDate` 等。**注意：画布里日历头部行有 ±3px 渲染抖动**（重载间非确定），含日历的屏金标准用 `--pct 0.5`
 - **keyboard** 必须先给 textarea 一个 id 再引用；`mode: number` 出数字键盘
 - **spinbox** 的 `bind` 绑 value（EEZ 标记 assignable），`digits` 位数、`rollover` 循环越界
+
+**Tabview（EEZ 原生完整建模，tabs 即子组件）：**
+
+```jsonc
+{ "type": "tabview", "id": "cfg", "bind": "active_idx",   // selectedTab 双向（tabviewSetActiveTab）
+  "position": "top", "barSize": 44,                        // top/bottom/left/right + 标签栏厚度
+  "events": { "value_changed": "on_tab" },
+  "tabs": [
+    { "title": "Display", "children": [ ...普通 widget 树... ] },
+    { "title": "Network", "children": [ ... ] } ] }
+```
+
+标签内容坐标相对 tab 内容区（自动扣掉标签栏占的一轴）。**MessageBox 不在此列**：它和 chart/table 同属 EEZ 零编辑件（空串创建+closed，见上游 issue #1050），等官方路线图。
 
 ## variables
 

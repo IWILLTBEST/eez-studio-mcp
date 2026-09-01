@@ -126,6 +126,7 @@ DEFAULT_SIZE: dict[str, tuple[int, int]] = {
     "calendar": (230, 240),
     "keyboard": (300, 120),
     "spinbox": (180, 60),
+    "tabview": (320, 220),
 }
 
 # Property bound per widget type & inferred variable type. bind 到不同 widget 时绑定的属性 & 推断变量类型
@@ -144,6 +145,9 @@ BIND_TARGET: dict[str, tuple[str, str, str]] = {
     # roller 的 selected 可写：变量变化→rollerSetSelected，VALUE_CHANGED→写变量。
     "roller": ("selected", "integer", "0"),
     "spinbox": ("value", "integer", "0"),
+    # tabview selectedTab is assignable (tabviewSetActiveTab) and VALUE_CHANGED
+    # fires on tab switch — same two-way pattern as roller/spinbox.
+    "tabview": ("selectedTab", "integer", "0"),
 }
 
 
@@ -178,6 +182,8 @@ _TYPE_PREFIX = {
     "LVGLCalendarWidget": "calendar_",
     "LVGLKeyboardWidget": "keyboard_",
     "LVGLSpinboxWidget": "spinbox_",
+    "LVGLTabviewWidget": "tabview_",
+    "LVGLTabWidget": "tab_",
 }
 
 
@@ -984,6 +990,47 @@ class Compiler:
         else:
             obj["value"] = need_int(f"{p}.value", n.get("value"), 0)
             obj["valueType"] = "literal"
+        return obj
+
+    def _build_tabview(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        """EEZ models tabview fully: tabs are LVGLTabWidget children (own title +
+        content children), selectedTab is bindable (tabviewSetActiveTab). The one
+        container besides panel that takes children. EEZ 对 tabview 建模完整：
+        tabs 作为子组件（各自标题+内容），selectedTab 可绑定。"""
+        obj = self.base("LVGLTabviewWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        position = str(n.get("position", "top")).upper()
+        if position not in ("TOP", "BOTTOM", "LEFT", "RIGHT"):
+            self.err(f"{p}.position", f"must be top/bottom/left/right, got {n.get('position')!r}")
+            position = "TOP"
+        bar = need_int(f"{p}.barSize", n.get("barSize"), 40)
+        obj["tabviewPosition"] = position
+        obj["tabviewSize"] = bar
+        bind = self._bind(n, p, "tabview")
+        if bind:
+            obj["selectedTab"], obj["selectedTabType"] = bind[1], "expression"
+        else:
+            obj["selectedTab"] = need_int(f"{p}.selected", n.get("selected"), 0)
+            obj["selectedTabType"] = "literal"
+        # tab content area: bar eats one axis. 标签栏占掉一轴。
+        cw = w - bar if position in ("LEFT", "RIGHT") else w
+        ch = h if position in ("LEFT", "RIGHT") else h - bar
+        tabs = n.get("tabs") or []
+        if not tabs:
+            self.err(f"{p}.tabs", "tabview needs at least one tab {title, children}")
+        for i, t in enumerate(tabs):
+            tp = f"{p}.tabs[{i}]"
+            if not isinstance(t, dict):
+                self.err(tp, "expected object {title, children}")
+                continue
+            title = need_str(f"{tp}.title", t.get("title"), f"Tab {i + 1}")
+            tab = self.base("LVGLTabWidget", {"type": "tab"}, tp, 0, 0, cw, ch)
+            tab["clickableFlag"] = True
+            tab["tabName"], tab["tabNameType"] = title, "literal"
+            # font for the tab title follows the tabview's font context so
+            # widths/fonts stay consistent. 标题字体随 tabview 上下文。
+            self.fill_children(tab, t, tp)
+            obj["children"].append(tab)
         return obj
 
     def _build_canvas(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
