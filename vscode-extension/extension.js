@@ -15,6 +15,20 @@ const fs = require("fs");
 
 let output;
 const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+const STATUS_LABEL = "$(eye) UIXML Preview";
+let statusTimer = null;
+
+/** Transient status text with a spinner; settles back to the button label. */
+function setBusy(msg) {
+    clearTimeout(statusTimer);
+    status.text = `$(sync~spin) uixml: ${msg}`;
+}
+
+function setDone(msg, ok = true) {
+    clearTimeout(statusTimer);
+    status.text = `${ok ? "$(check)" : "$(error)"} uixml: ${msg}`;
+    statusTimer = setTimeout(() => { status.text = STATUS_LABEL; }, 3500);
+}
 
 function out() {
     if (!output) output = vscode.window.createOutputChannel("UIXML");
@@ -441,7 +455,7 @@ class PreviewProvider {
         if (!this.panel || !this.currentFile) return;
         if (this.pixelBusy) { this.pixelQueued = true; return; }   // re-run after the in-flight render instead of dropping (dropped = webview stuck at "compiling & rendering…")
         this.pixelBusy = true;
-        status.text = "uixml: rendering (pixel)…";
+        setBusy("rendering (pixel)…");
         try {
             const project = projectPathFor(this.currentFile);
             await runCompiler(this.currentFile);
@@ -463,10 +477,10 @@ class PreviewProvider {
                 prev = cur;
             }
             this.panel.webview.postMessage({ command: "pixel", dataUrl: prev.dataUrl, screens });
-            status.text = `uixml: ${path.basename(this.currentFile)} ✓`;
+            setDone(`${path.basename(this.currentFile)} pixel ✓`);
         } catch (e) {
             this.panel.webview.postMessage({ command: "pixelErr", error: String(e.message || e) });
-            status.text = "uixml: pixel preview failed";
+            setDone("pixel preview failed", false);
         } finally {
             this.pixelBusy = false;
             if (this.pixelQueued) {
@@ -480,8 +494,14 @@ class PreviewProvider {
 function activate(context) {
     const preview = new PreviewProvider();
     status.command = "uixml.preview";
-    status.text = "uixml";
-    status.show();
+    status.text = STATUS_LABEL;
+    status.tooltip = "Open the UIXML preview (Sketch / Pixel) for the active file";
+    const syncVisibility = () => {
+        const ed = vscode.window.activeTextEditor;
+        status.visible = !!ed && ed.document.fileName.toLowerCase().endsWith(".uixml");
+    };
+    syncVisibility();
+    const onEditor = vscode.window.onDidChangeActiveTextEditor(syncVisibility);
 
     const activeUixml = () => {
         const ed = vscode.window.activeTextEditor;
@@ -492,15 +512,15 @@ function activate(context) {
         const f = activeUixml();
         if (!f) return vscode.window.showWarningMessage("Open a .uixml file first");
         try {
-            status.text = "uixml: compiling…";
+            setBusy("compiling…");
             const r = await runCompiler(f);
             out().appendLine(r.stdout);
-            status.text = `uixml: compiled ${path.basename(f)} ✓`;
+            setDone(`compiled ${path.basename(f)}`);
             vscode.window.showInformationMessage(`Compiled → ${path.basename(r.project)}`);
         } catch (e) {
             out().appendLine(String(e.message || e));
             out().show();
-            status.text = "uixml: compile failed";
+            setDone("compile failed", false);
             vscode.window.showErrorMessage("Compile failed — see UIXML output");
         }
     });
@@ -532,17 +552,17 @@ function activate(context) {
             if (!picked) return;
             eez = picked[0].fsPath;
         }
-        status.text = "uixml: importing…";
+        setBusy("importing…");
         try {
             const r = await runImport(eez);
             out().appendLine(r.stdout);
-            status.text = "uixml: imported ✓";
+            setDone("imported ✓");
             vscode.window.showInformationMessage(`Imported → ${path.basename(r.out)} (self-check passed, .bak kept)`);
             vscode.window.showTextDocument(vscode.Uri.file(r.out));
         } catch (e) {
             out().appendLine(String(e.message || e));
             out().show();
-            status.text = "uixml: import refused";
+            setDone("import refused", false);
             vscode.window.showErrorMessage("Import refused — see UIXML output (out-of-subset edits or missing side-cars)");
         }
     });
@@ -554,7 +574,7 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, onChange, onSave, status);
+    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, onChange, onSave, onEditor, status);
 }
 
 function deactivate() {}
