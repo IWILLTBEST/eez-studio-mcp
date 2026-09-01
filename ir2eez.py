@@ -118,6 +118,9 @@ DEFAULT_SIZE: dict[str, tuple[int, int]] = {
     "panel": (200, 40),
     "line": (100, 1),
     "canvas": (180, 100),
+    "roller": (100, 100),
+    "table": (240, 120),
+    "chart": (260, 150),
 }
 
 # Property bound per widget type & inferred variable type. bind 到不同 widget 时绑定的属性 & 推断变量类型
@@ -131,6 +134,10 @@ BIND_TARGET: dict[str, tuple[str, str, str]] = {
     "led": ("brightness", "integer", "0"),
     "switch": ("checkedState", "boolean", "false"),
     "checkbox": ("checkedState", "boolean", "false"),
+    # roller selected is assignable: the flow emits rollerSetSelected when the
+    # variable changes and the widget writes the variable on VALUE_CHANGED.
+    # roller 的 selected 可写：变量变化→rollerSetSelected，VALUE_CHANGED→写变量。
+    "roller": ("selected", "integer", "0"),
 }
 
 
@@ -158,6 +165,9 @@ _TYPE_PREFIX = {
     "LVGLSpinnerWidget": "spinner_",
     "LVGLUserWidgetWidget": "widget_",
     "LVGLScreenWidget": "screen_",
+    "LVGLRollerWidget": "roller_",
+    "LVGLTableWidget": "table_",
+    "LVGLChartWidget": "chart_",
 }
 
 
@@ -271,6 +281,9 @@ class Compiler:
                 fail(f"strings.texts[{key!r}]", "expected object with at least one language")
             self.strings[str(key)] = {str(l): str(t) for l, t in langs.items()}
         self.tr_keys: set[str] = set()
+        # Rich widgets (chart/table/roller structure) for ui_ext.h generation.
+        # 富数据部件的结构参数，落 ui_ext.h 给固件当命名常量。
+        self.rich_widgets: list[dict[str, Any]] = []
         self.default_font = need_str("project.font", proj.get("font"), "")
         self.errors: list[str] = []
 
@@ -737,6 +750,116 @@ class Compiler:
 
     def _build_spinner(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         return self.base("LVGLSpinnerWidget", n, p, x, y, w, h)
+
+    def _build_roller(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        obj = self.base("LVGLRollerWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        obj["widgetFlags"] = ("CLICKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|"
+                              "SCROLL_CHAIN_HOR|SCROLL_ELASTIC|SCROLL_MOMENTUM|"
+                              "SCROLL_WITH_ARROW|SNAPPABLE")
+        opts = n.get("options")
+        if isinstance(opts, list):
+            if not opts or not all(isinstance(o, str) and o for o in opts):
+                self.err(f"{p}.options", "expected a non-empty list of strings")
+                opts = ["Option 1", "Option 2"]
+            options = "\n".join(opts)
+        elif isinstance(opts, str) and opts:
+            options = opts          # raw "\n"-separated string also accepted
+        else:
+            self.err(f"{p}.options", "expected a list of options or a \\n-separated string")
+            options = "Option 1\nOption 2"
+        mode = str(n.get("mode", "normal")).upper()
+        if mode not in ("NORMAL", "INFINITE"):
+            self.err(f"{p}.mode", f"must be normal or infinite, got {n.get('mode')!r}")
+            mode = "NORMAL"
+        obj["options"], obj["optionsType"] = options, "literal"
+        bind = self._bind(n, p, "roller")
+        if bind:
+            obj["selected"], obj["selectedType"] = bind[1], "expression"
+        else:
+            obj["selected"] = need_int(f"{p}.selected", n.get("selected"), 0)
+            obj["selectedType"] = "literal"
+        obj["mode"] = mode
+        # Width guard: the roller shows one option at a time — fit the longest
+        # one plus wheel padding. 宽度兜底：按最长选项估宽（滚轮一次只显示一项）。
+        font = str(n.get("font") or self.default_font or "x_16")
+        longest = max(options.split("\n"), key=len)
+        need_w = estimate_text_width(longest, font_size_of(font)) + 44
+        if obj["width"] < need_w:
+            obj["width"] = need_w
+        self.rich_widgets.append({"kind": "roller", "id": obj.get("identifier", ""),
+                                  "options": options.split("\n")})
+        return obj
+
+    def _build_table(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        """EEZ compiles lv_table_create only — structure (col/row count, cell text)
+        is runtime C. cols/rows/header are validated here and exported to ui_ext.h
+        as named constants + a ready-to-loop header array; they do NOT change the
+        .eez-project. EEZ 只编译 lv_table_create：结构是运行时 C 的事，cols/rows/header
+        进 ui_ext.h 命名常量（不进工程文件）。"""
+        obj = self.base("LVGLTableWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        obj["widgetFlags"] = ("CLICKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|"
+                              "SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|"
+                              "SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|"
+                              "SNAPPABLE")
+        cols = need_int(f"{p}.cols", n.get("cols"), 3)
+        rows = need_int(f"{p}.rows", n.get("rows"), 4)
+        if not (1 <= cols <= 32 and 1 <= rows <= 256):
+            self.err(f"{p}", f"cols/rows out of range (1..32 x 1..256), got {cols}x{rows}")
+        header = n.get("header")
+        if header is not None:
+            if (not isinstance(header, list) or not header
+                    or not all(isinstance(s, str) for s in header)):
+                self.err(f"{p}.header", "expected a list of strings")
+                header = None
+            elif len(header) > cols:
+                self.err(f"{p}.header", f"{len(header)} header cells exceed cols={cols}")
+                header = header[:cols]
+        self.rich_widgets.append({"kind": "table", "id": obj.get("identifier", ""),
+                                  "cols": cols, "rows": rows, "header": header or []})
+        return obj
+
+    def _build_chart(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
+        """Same story as table: lv_chart_create only; series/ranges are runtime C.
+        IR kind/min/max/points/series are validated and exported to ui_ext.h.
+        与 table 同理：序列/量程是运行时 C，IR 参数进 ui_ext.h。"""
+        obj = self.base("LVGLChartWidget", n, p, x, y, w, h)
+        obj["clickableFlag"] = True
+        obj["widgetFlags"] = ("CLICKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|"
+                              "SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|"
+                              "SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|"
+                              "SNAPPABLE")
+        kind = str(n.get("kind", "line")).lower()
+        if kind not in ("line", "scatter"):
+            self.err(f"{p}.kind", f"must be line or scatter, got {n.get('kind')!r}")
+            kind = "line"
+        vmin = need_int(f"{p}.min", n.get("min"), 0)
+        vmax = need_int(f"{p}.max", n.get("max"), 100)
+        if vmin >= vmax:
+            self.err(f"{p}", f"min must be < max, got {vmin}..{vmax}")
+        points = need_int(f"{p}.points", n.get("points"), 120)
+        if not (2 <= points <= 4096):
+            self.err(f"{p}.points", f"must be 2..4096, got {points}")
+            points = 120
+        series = n.get("series")
+        names: list[dict[str, Any]] = []
+        if series is not None:
+            if not isinstance(series, list) or not series:
+                self.err(f"{p}.series", "expected a non-empty list of {name, color, width}")
+                series = None
+            else:
+                for i, s in enumerate(series):
+                    if not isinstance(s, dict) or not s.get("name"):
+                        self.err(f"{p}.series[{i}]", "each series needs a name")
+                        continue
+                    color = normalize_color(str(s.get("color", "#5EE6C4")))
+                    names.append({"name": str(s["name"]), "color": color,
+                                  "width": need_int(f"{p}.series[{i}].width", s.get("width"), 2)})
+        self.rich_widgets.append({"kind": "chart", "id": obj.get("identifier", ""),
+                                  "chart_kind": kind, "min": vmin, "max": vmax,
+                                  "points": points, "series": names})
+        return obj
 
     def _build_canvas(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         """Custom-draw area (waveforms etc.): lv_canvas_create; the buffer is filled by
@@ -1647,6 +1770,51 @@ def main(argv: list[str]) -> int:
         with open(h_path, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(lines))
         print(f"action.h → {h_path} ({len(compiler.native_actions)} native actions)")
+
+    # ui_ext.h: rich-widget structure constants. EEZ compiles chart/table as bare
+    # lv_chart_create/lv_table_create — configure them at runtime using these named
+    # constants instead of magic numbers (full identifiers keep the macro names unique).
+    # ui_ext.h：富数据部件结构常量。chart/table 编译为裸对象，运行时配置用这些常量。
+    if any(w["kind"] in ("chart", "table") for w in compiler.rich_widgets):
+        import os
+        ext_path = os.path.splitext(args.output)[0] + ".ui_ext.h"
+        L = [
+            "// ui_ext.h — auto-generated by ir2eez (do not edit)",
+            "// Rich-widget structure constants: charts/tables are bare LVGL objects;",
+            "// call the lv_chart_*/lv_table_* APIs from firmware init using these values.",
+            "#pragma once",
+            "",
+        ]
+        for w in compiler.rich_widgets:
+            if not w["id"]:
+                continue
+            macro = w["id"].upper()
+            if w["kind"] == "chart":
+                L += [
+                    f"// chart {w['id']} — {w['chart_kind']}, {w['points']} points, "
+                    f"range {w['min']}..{w['max']}, {len(w['series'])} series",
+                    f"#define {macro}_POINTS {w['points']}",
+                    f"#define {macro}_MIN {w['min']}",
+                    f"#define {macro}_MAX {w['max']}",
+                ]
+                for i, s in enumerate(w["series"]):
+                    L.append(f"#define {macro}_SERIES_{i}_NAME \"{s['name']}\"   // color {s['color']}, width {s['width']}")
+            elif w["kind"] == "table":
+                L += [
+                    f"// table {w['id']} — {w['cols']} cols x {w['rows']} rows",
+                    f"#define {macro}_COLS {w['cols']}",
+                    f"#define {macro}_ROWS {w['rows']}",
+                ]
+                if w["header"]:
+                    joined = ", ".join(json.dumps(h, ensure_ascii=False) for h in w["header"])
+                    L += [
+                        f"static const char *const {macro}_HEADER[] = {{ {joined} }};",
+                        f"#define {macro}_HEADER_LEN {len(w['header'])}",
+                    ]
+            L.append("")
+        with open(ext_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(L))
+        print(f"ui_ext.h → {ext_path} ({len(compiler.rich_widgets)} rich widgets)")
 
     # translations.yaml (lv_i18n format): compile with the lv_i18n CLI into C,
     # firmware resolves T"key" at runtime via the translate hook (upstream #1045).

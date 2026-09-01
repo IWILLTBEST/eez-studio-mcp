@@ -38,7 +38,7 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 
 | 字段 | 说明 |
 |---|---|
-| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` |
+| `type` | `container` `button` `label` `image` `dropdown` `bar` `slider` `textarea` `checkbox` `switch` `arc` `spinner` `led` `roller` `table` `chart` |
 | `widget` | user widget 实例：`{"widget": "NavBar", "x": 0, "y": 0}`（此时不用 type，不能带 children） |
 | `id` | → EEZ identifier，供 C 代码 / LVGL action 引用 |
 | `x` `y` `w` `h` | 显式坐标尺寸；缺省时按布局规则推导。**坐标一律相对父容器**（LVGL 语义，无全局坐标）：user widget 的 children 坐标相对 widget 自身（如 NavBar 宽 800 时，右端 LED 的 x 按 800 算，不按屏幕宽算）；实例换位置/换屏幕，内容整体跟随 |
@@ -60,12 +60,40 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 | bar / slider / arc | value | integer |
 | **led** | **brightness (0-255)** | integer |
 | switch / checkbox | checkedState | boolean |
+| **roller** | **selected（可写）** | integer |
 
 **LED 的 `color` 只能是字面量**（EEZ 限制）；用 brightness 表达状态：
 固件里 `set_var_led_wifi(255)` 点亮 / `set_var_led_bt(80)` 变暗，
 所有页面实例化的 NavBar 里的 LED 会随 tick 自动刷新（一处改，处处变）。
 
 **设计时预览（design-time preview）**：EEZ 画布渲染的是 `previewValue`，不是表达式本身（表达式只在运行时求值）。编译器用变量默认值对 bind 表达式做安全求值写入 previewValue：裸变量 → 默认值；算术/字符串拼接可求则求；求不动（函数调用、未声明变量）原样回退。节点上的 `preview` 字段可显式覆盖。**截图比对前先确认变量 default 正确**，否则画布上显示的是变量名而不是数值。
+
+### 富数据部件（roller / table / chart）
+
+**Roller 完整编译**——选项、选中项双向绑定全进工程：
+
+```jsonc
+{ "type": "roller", "id": "mode", "bind": "mode_idx",
+  "options": ["Auto", "Manual", "Service"],   // 或 "\n" 分隔字符串
+  "mode": "normal",                            // normal | infinite（无限循环滚动）
+  "events": { "value_changed": "on_mode" } }   // 滚动选择触发
+```
+
+宽度按最长选项自动兜底；`bind` 绑 selected（integer，双向：变量变→`rollerSetSelected`，滚动→写变量）。
+
+**Table / Chart 编译为裸 LVGL 对象**（EEZ 侧本来就没有结构属性——`lv_table_create`/`lv_chart_create` 即全部），IR 的结构参数做**校验 + 尺寸参考**，并导出为 `*.ui_ext.h` 命名常量给固件运行时配置用（不进 .eez-project）：
+
+```jsonc
+{ "type": "chart", "id": "bus", "kind": "line",     // line | scatter
+  "min": 0, "max": 400, "points": 120,
+  "series": [ { "name": "Ibus", "color": "#5EE6C4", "width": 2 } ] }
+
+{ "type": "table", "id": "events",
+  "cols": 3, "rows": 5, "header": ["Time", "Code", "Message"] }
+```
+
+产物 `ui_ext.h`：`CHART_BUS_POINTS/MIN/MAX/SERIES_0_NAME`、`TABLE_EVENTS_COLS/ROWS` + `TABLE_EVENTS_HEADER[]` 数组（固件 init 时循环 `lv_table_set_cell_value`）。画布上 chart/table 是空矩形（运行时才有内容）——视觉比对时这是预期。示例见 examples/richdata。
+
 
 ## variables
 
@@ -164,3 +192,4 @@ repeat 是重播（每次从 from 重新开始）；playback 才是往返。模�
 - flow 只有线性 steps，无分支/循环（if/loop 待加：IsTrue/Loop 组件 + 多引脚连线）
 - image 引用的位图需在 EEZ 里手动导入（bitmaps 段未实现）
 - user widget 实例暂不支持传参（EEZ 的 userPropertyValues 需要 flowSupport，工程已开启，IR 层面待加）
+- **裸机固件完整导出待补模板**：EEZ 固件引擎 `extern void create_screens()` 要求工程 build.files 模板含 `@LVGL_SCREENS_DEF@` 等段生成屏幕/部件 C 代码；我们的种子工程 `files: []`（极简），完整导出（generateSourceCodeForEezFramework）不产屏幕代码、裸机构建会缺符号。**模拟器/画布/检查/金标准路径完全不受影响**（wasm 运行时直接从 assets 创建部件，lv_chart/lv_table 都在内）。补齐种子模板 = 排队中的基建项
