@@ -57,7 +57,7 @@ MCP（Model Context Protocol）服务器 + AI 技能 + IR 编译器：让 Claude
 
 ## IR 编译器与固件接口
 
-`ir2eez.py` 把声明式 JSON IR 编译成 `.eez-project`——现在支持 **23 种部件类型**，从基础件（label/button/slider/arc…）到富数据全家桶（roller、table、chart、scale、calendar、keyboard、spinbox、tabview）。工程旁边会产出三份配套文件：
+`ir2eez.py` 把声明式源文件编译成 `.eez-project`——源格式是 **UIXML**（我们自己的 XML 词汇表：属性即字段、`xmlns:lv` 样式透传、原生注释；刻意不是 LVGL XML 规范——其许可证禁止第三方生成器）。旧 `.ir.json` 仍可编译——现在支持 **23 种部件类型**，从基础件（label/button/slider/arc…）到富数据全家桶（roller、table、chart、scale、calendar、keyboard、spinbox、tabview）。工程旁边会产出三份配套文件：
 
 ```text
 motor-demo.eez-project     # 用 EEZ Studio 直接打开的原生格式
@@ -91,7 +91,7 @@ while (1) { lv_timer_handler(); ui_tick(); /* 喂数据：set_var_speed(...)、c
 ```bash
 git clone https://github.com/IWILLTBEST/eez-studio-mcp && cd eez-studio-mcp
 pip install mcp httpx
-python ir2eez.py examples/motor/motor.ir.json -o motor-demo.eez-project
+python ir2eez.py examples/motor/motor.uixml -o motor-demo.eez-project
 # → motor-demo.eez-project + action.h（12 个 native 动作）
 ```
 

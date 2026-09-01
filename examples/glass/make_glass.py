@@ -4,8 +4,10 @@
 玻璃拟态仪表盘示例 IR 生成器：半透明卡片 + 阴影 + 渐变背景 + 交错入场动画。
 Cards animate in staggered; Replay button re-triggers; status LED breathes.
 """
-import json
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+import uixml
 
 W, H = 1024, 600
 
@@ -186,7 +188,6 @@ ir = {
     ],
 }
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glass.ir.json")
-with open(out, "w", encoding="utf-8", newline="") as f:
-    json.dump(ir, f, ensure_ascii=False, indent=2)
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glass.uixml")
+uixml.ir_to_xml(ir, out)
 print("written:", out)

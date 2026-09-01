@@ -57,7 +57,7 @@ Protocol extras: **live resources** (`eez://checks`, `eez://debug`, `eez://state
 
 ## The IR compiler & firmware contract
 
-`ir2eez.py` compiles a declarative JSON IR into a `.eez-project` — **23 widget types** now, from the basics (label/button/slider/arc/…) through the rich set (roller, table, chart, scale, calendar, keyboard, spinbox, tabview). Three sidecar artifacts come out next to the project:
+`ir2eez.py` compiles a declarative source file into a `.eez-project` — the format is **UIXML**, our own XML vocabulary (attribute-per-field, `xmlns:lv` style passthrough, native comments; deliberately NOT the LVGL XML Specification, whose license forbids third-party generators). Legacy `.ir.json` still compiles — **23 widget types** now, from the basics (label/button/slider/arc/…) through the rich set (roller, table, chart, scale, calendar, keyboard, spinbox, tabview). Three sidecar artifacts come out next to the project:
 
 ```text
 motor-demo.eez-project     # open in EEZ Studio — native format
@@ -91,8 +91,8 @@ while (1) { lv_timer_handler(); ui_tick(); /* feed data: set_var_speed(...), cha
 ```bash
 git clone https://github.com/IWILLTBEST/eez-studio-mcp && cd eez-studio-mcp
 pip install mcp httpx
-python ir2eez.py examples/motor-en/motor-en.ir.json -o motor-demo.eez-project
-# → motor-demo.eez-project + action.h (12 native actions); 中文版: examples/motor/motor.ir.json
+python ir2eez.py examples/motor-en/motor-en.uixml -o motor-demo.eez-project
+# → motor-demo.eez-project + action.h (12 native actions); 中文版: examples/motor/motor.uixml
 ```
 
 ## Visual regression & headless CI

@@ -2,8 +2,10 @@
 """Rich data widgets demo: Roller (fully compiled — options + bound selected),
 Table and Chart (bare LVGL objects; structure exported to ui_ext.h constants
 for firmware runtime setup). 富数据部件演示：滚轮完整编译；表格/图表结构进 ui_ext.h。"""
-import json
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+import uixml
 
 W, H = 480, 640
 
@@ -137,7 +139,6 @@ ir["screens"].append({
     }],
 })
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "richdata.ir.json")
-with open(out, "w", encoding="utf-8", newline="") as f:
-    json.dump(ir, f, ensure_ascii=False, indent=1)
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "richdata.uixml")
+uixml.ir_to_xml(ir, out)
 print("written:", out)

@@ -1905,14 +1905,24 @@ def check_project(project: dict[str, Any]) -> list[str]:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="IR(JSON) → EEZ Studio .eez-project (LVGL)")
-    ap.add_argument("input", help="path to the IR JSON file")
+    ap.add_argument("input", help="path to the source file (.uixml preferred, or legacy .ir.json)")
     ap.add_argument("-o", "--output", default="out_ir.eez-project", help="output file")
     args = ap.parse_args(argv)
 
-    with open(args.input, "r", encoding="utf-8") as f:
-        ir = json.load(f)
+    # Dual source entry: .uixml (XML surface syntax, preferred) or legacy
+    # .ir.json — both produce the same IR dict. 双入口：.uixml 为主，.ir.json 兼容。
+    if args.input.lower().endswith((".uixml", ".xml")):
+        import uixml
+        try:
+            ir = uixml.xml_to_ir(args.input)
+        except uixml.UIXMLError as e:
+            print(f"✗ {e}", file=sys.stderr)
+            return 1
+    else:
+        with open(args.input, "r", encoding="utf-8") as f:
+            ir = json.load(f)
     if not isinstance(ir, dict):
-        print("IR root must be a JSON object", file=sys.stderr)
+        print("IR root must be a JSON object / <ui> element", file=sys.stderr)
         return 1
 
     try:

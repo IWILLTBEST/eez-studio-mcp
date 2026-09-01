@@ -1146,12 +1146,22 @@ async function resourceWatcher() {
 // ----------------------------------------------------------------------------
 
 function listResources() {
+    // Prefer .uixml (XML surface syntax); fall back to legacy .ir.json.
+    // 优先 .uixml（XML 源格式），回退旧 .ir.json。
+    let irFile;
+    try {
+        const entries = fs.readdirSync(WORKDIR).sort();
+        irFile = entries.find(f => f.endsWith(".uixml")) ||
+            entries.find(f => f.endsWith(".ir.json")) || "main.uixml";
+    } catch {
+        irFile = "main.uixml";
+    }
     const resources = [
         {
-            uri: pathToFileURL(path.join(WORKDIR, "sg8.ir.json")).href,
-            name: "Current IR JSON 当前 IR JSON",
-            description: "UI description source file of the EEZ Studio project 工程界面描述源文件",
-            mimeType: "application/json",
+            uri: pathToFileURL(path.join(WORKDIR, irFile)).href,
+            name: `UI source ${irFile} 界面源文件`,
+            description: "UI description source file of the EEZ Studio project (.uixml preferred, legacy .ir.json) 工程界面描述源文件",
+            mimeType: irFile.endsWith(".uixml") ? "application/xml" : "application/json",
         },
         {
             uri: pathToFileURL(path.join(WORKDIR, "IR_SCHEMA.md")).href,

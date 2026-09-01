@@ -28,10 +28,10 @@ import visreg  # noqa: E402  (reuse capture/diff/golden plumbing)
 # loose = single-shot capture (screen contains a continuously animating element,
 # e.g. the lv_calendar header label auto-scrolls when the text does not fit).
 EXAMPLES = [
-    ("glass", "glass.ir.json", "make_glass.py", [("main", "glass", False)]),
-    ("i18n", "i18n.ir.json", "make_i18n.py", [("main", "i18n", False)]),
-    ("motor", "motor.ir.json", None, [("overview", "motor", False)]),
-    ("richdata", "richdata.ir.json", "make_richdata.py", [
+    ("glass", "glass.uixml", "make_glass.py", [("main", "glass", False)]),
+    ("i18n", "i18n.uixml", "make_i18n.py", [("main", "i18n", False)]),
+    ("motor", "motor.uixml", None, [("overview", "motor", False)]),
+    ("richdata", "richdata.uixml", "make_richdata.py", [
         ("main", "richdata", False),
         ("controls", "richdata-controls", True),
         ("settings", "richdata-settings", False),
@@ -84,7 +84,7 @@ def main() -> int:
         if make:
             r = run([sys.executable, os.path.join(exdir, make)], exdir)
             record(f"{ex}/make", r.returncode == 0, (r.stderr or r.stdout)[-120:].strip())
-        project = os.path.join(exdir, ir.replace(".ir.json", ".eez-project"))
+        project = os.path.join(exdir, ir.replace(".uixml", ".eez-project"))
         r = run([sys.executable, os.path.join(ROOT, "ir2eez.py"),
                  os.path.join(exdir, ir), "-o", project], ROOT)
         ok = r.returncode == 0 and "✗" not in (r.stdout + r.stderr)

@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <project name="i18n-demo" width="480" height="320" font="cn_24" />
+  <var name="speed_val" type="integer" default="1350" />
+  <strings default="en">
+    <text key="title">
+      <l lang="en">Motor Controller</l>
+      <l lang="zh">电机控制器</l>
+    </text>
+    <text key="speed">
+      <l lang="en">Speed</l>
+      <l lang="zh">转速</l>
+    </text>
+    <text key="temperature">
+      <l lang="en">Temperature</l>
+      <l lang="zh">温度</l>
+    </text>
+    <text key="start">
+      <l lang="en">Start</l>
+      <l lang="zh">启动</l>
+    </text>
+    <text key="stop">
+      <l lang="en">Stop</l>
+      <l lang="zh">停止</l>
+    </text>
+    <text key="status_ok">
+      <l lang="en">All systems nominal</l>
+      <l lang="zh">系统一切正常</l>
+    </text>
+  </strings>
+  <screen name="main">
+    <panel id="root" x="0" y="0" w="480" h="320" bg="#101828" radius="0">
+      <label id="title" tr="title" x="24" y="20" w="360" h="34" font="cn_24" color="#E8EFFA" />
+      <label id="row_speed" tr="speed" x="24" y="84" w="150" h="26" color="#8FA0BC" />
+      <label id="val_speed" bind="speed_val" x="210" y="84" w="120" h="26" color="#5EE6C4" />
+      <label id="row_temp" tr="temperature" x="24" y="124" w="150" h="26" color="#8FA0BC" />
+      <label id="status" tr="status_ok" x="24" y="168" w="400" h="26" color="#5A6A86" />
+      <button id="btn_start" text="" x="24" y="220" w="90" h="48" radius="10" bg="#1E7F5C" color="#FFFFFF" />
+      <label id="btn_start_lbl" tr="start" x="24" y="233" w="90" h="24" color="#FFFFFF" align="center" font="cn_24" />
+      <button id="btn_stop" text="" x="130" y="220" w="90" h="48" radius="10" bg="#7A2E3A" color="#FFFFFF" />
+      <label id="btn_stop_lbl" tr="stop" x="130" y="233" w="90" h="24" color="#FFFFFF" align="center" font="cn_24" />
+    </panel>
+  </screen>
+</ui>

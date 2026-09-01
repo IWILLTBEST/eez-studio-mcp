@@ -28,7 +28,7 @@ description: Generate EEZ Studio LVGL .eez-project files from a declarative IR J
 - 字体工具：`font_tool.py`（compile/scan-html/list/show）
 - Python：`python`
 - EEZ Studio 源码：https://github.com/IWILLTBEST/studio （EEZ Studio v0.30.0 fork + ai-agent 桥，GPL-3.0）
-- 例子：`motor.ir.json`（电机控制器 3 屏，含每屏独立导航）/ `sg8.ir.json` + `make_sg8.py`
+- 例子：`motor.uixml`（电机控制器 3 屏，含每屏独立导航）/ `richdata.uixml` + `make_richdata.py`
 
 ## 工作流程
 
@@ -36,7 +36,7 @@ description: Generate EEZ Studio LVGL .eez-project files from a declarative IR J
 2. **写 IR**（或生成脚本）→ 3. **编译**（校验退出码）→ 4. **处理报错** → 5. **预览自查** → 6. **交付**
 
 ```
-D:/.../python.exe ir2eez.py <输入.ir.json> -o <输出.eez-project>; echo exit=$?
+D:/.../python.exe ir2eez.py <输入.uixml> -o <输出.eez-project>; echo exit=$?   # 旧 .ir.json 仍兼容
 ```
 
 ## 必守规则

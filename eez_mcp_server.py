@@ -792,13 +792,18 @@ async def handle_discover(ctx, params) -> Any:
 # Resource definitions 资源定义
 
 async def list_resources() -> list[Resource]:
-    ir_path = Path(WORKDIR) / "sg8.ir.json"
+    # Prefer .uixml (XML surface syntax); fall back to legacy .ir.json.
+    # 优先 .uixml（XML 源格式），回退旧 .ir.json。
+    ir_path = next(
+        (p for pat in ("*.uixml", "*.ir.json") for p in sorted(Path(WORKDIR).glob(pat))),
+        Path(WORKDIR) / "main.uixml",
+    )
     resources = [
         Resource(
             uri=f"file://{ir_path}",
-            name="Current IR JSON 当前 IR JSON",
-            description="UI description source file of the EEZ Studio project 工程界面描述源文件",
-            mimeType="application/json",
+            name=f"UI source {ir_path.name} 界面源文件",
+            description="UI description source file of the EEZ Studio project (.uixml preferred, legacy .ir.json) 工程界面描述源文件",
+            mimeType="application/xml" if ir_path.suffix == ".uixml" else "application/json",
         ),
         Resource(
             uri=f"file://{WORKDIR}/IR_SCHEMA.md",

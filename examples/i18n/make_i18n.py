@@ -8,8 +8,10 @@ other language — the firmware stays key-driven.
 最小 i18n 演示：tr 标签 → T"key" 表达式，画布显示默认语言译文；
 translations.yaml 为 lv_i18n 格式。切换 strings.default 重编译即可预览另一语言。
 """
-import json
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+import uixml
 
 W, H = 480, 320
 
@@ -63,7 +65,6 @@ ir = {
     }],
 }
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n.ir.json")
-with open(out, "w", encoding="utf-8", newline="") as f:
-    json.dump(ir, f, ensure_ascii=False, indent=1)
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n.uixml")
+uixml.ir_to_xml(ir, out)
 print("written:", out)

@@ -182,9 +182,9 @@ try {
     const { resolve } = await import("node:path");
     const glassProject = [
         process.env.EEZ_E2E_GLASS_PROJECT,
-        resolve("out_glass.eez-project"),
-        resolve("examples/glass/out_glass.eez-project"),
-        resolve("../html2eez/out_glass.eez-project"),
+        resolve("examples/glass/glass.eez-project"),
+        resolve("glass.eez-project"),
+        resolve("../html2eez/out_glass.eez-project"), // private-repo fallback (msyh fonts — goldens differ)
     ].find(p => p && existsSync(p));
     if (glassProject && existsSync(resolve("golden/glass.png"))) {
         const v = await callTool("visual_check", {

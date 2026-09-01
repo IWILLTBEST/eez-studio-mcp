@@ -1,0 +1,245 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <project name="motor" width="1024" height="600" font="demo_16" />
+  <var name="led_run" type="integer" default="255" />
+  <var name="led_can" type="integer" default="255" />
+  <var name="led_rs" type="integer" default="120" />
+  <var name="rtc" type="string" default="2026-08-18 14:30" />
+  <var name="speed" type="integer" default="1350" />
+  <var name="torque" type="integer" default="42" />
+  <var name="power" type="integer" default="6" />
+  <var name="eff" type="integer" default="94" />
+  <var name="motor_temp" type="integer" default="62" />
+  <var name="bus_volt" type="integer" default="540" />
+  <var name="out_curr" type="integer" default="12" />
+  <var name="fwd_on" type="boolean" default="true" />
+  <var name="eco_on" type="boolean" default="false" />
+  <widget width="1024" height="36" bg="#151B28" name="StatusBar">
+    <label text="MotorDrive MD-200" font="demo_20" color="#2E86DE" x="12" y="7" w="180" h="22" />
+    <led color="#27AE60" bind="led_run" x="210" y="14" w="8" h="8" />
+    <label text="运行" color="#7A8499" x="222" y="10" w="36" h="16" />
+    <led color="#27AE60" bind="led_can" x="268" y="14" w="8" h="8" />
+    <label text="CAN" color="#7A8499" x="280" y="10" w="40" h="16" />
+    <led color="#F6B93B" bind="led_rs" x="330" y="14" w="8" h="8" />
+    <label text="RS485" color="#7A8499" x="342" y="10" w="50" h="16" />
+    <label text="输出: 45.2 Hz" color="#E0E4EA" x="700" y="10" w="100" h="16" />
+    <label bind="rtc" preview="2026-08-18 14:30" color="#E0E4EA" x="830" y="10" w="170" h="16" />
+  </widget>
+  <screen name="overview">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="6" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel id="metrics_row" x="72" y="44" w="944" h="80" bg="#0A0E14">
+      <panel id="card_speed" x="0" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="转速 SPEED" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="speed" preview="1350" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_speed" />
+        <label text="RPM" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_torque" x="239" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="扭矩 TORQUE" color="#7A8499" x="12" y="8" w="130" h="16" />
+        <label bind="torque" preview="42.5" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_torque" />
+        <label text="N·m" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_power" x="478" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="功率 POWER" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="power" preview="6.2" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_power" />
+        <label text="kW" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_eff" x="717" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="效率 EFFICIENCY" color="#7A8499" x="12" y="8" w="150" h="16" />
+        <label bind="eff" preview="94.8" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_eff" />
+        <label text="%" color="#7A8499" x="12" y="58" w="30" h="14" />
+      </panel>
+    </panel>
+    <panel id="gauge_row" x="72" y="136" w="944" h="240" bg="#0A0E14">
+      <panel id="gauge_temp" x="0" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="电机温度" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="motor_temp" min="0" max="150" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_motor_temp" />
+        <label bind="motor_temp" preview="62" color="#F6B93B" font="demo_20" x="113" y="90" w="80" h="28" align="center" />
+        <label text="°C" color="#7A8499" x="133" y="118" w="40" h="16" align="center" />
+      </panel>
+      <panel id="gauge_volt" x="318" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="母线电压" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="bus_volt" min="0" max="900" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_bus_volt" />
+        <label bind="bus_volt" preview="540" color="#2E86DE" font="demo_20" x="103" y="90" w="100" h="28" align="center" />
+        <label text="V DC" color="#7A8499" x="123" y="118" w="60" h="16" align="center" />
+      </panel>
+      <panel id="gauge_curr" x="636" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="输出电流" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="out_curr" min="0" max="30" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_out_curr" />
+        <label bind="out_curr" preview="12.8" color="#2E86DE" font="demo_20" x="103" y="90" w="100" h="28" align="center" />
+        <label text="A" color="#7A8499" x="138" y="118" w="30" h="16" align="center" />
+      </panel>
+    </panel>
+    <panel id="ctrl_row" x="72" y="388" w="944" h="204" bg="#0A0E14">
+      <panel id="ctrl_speed" x="0" y="0" w="466" h="204" bg="#151B28" radius="8">
+        <label text="速度控制" color="#7A8499" x="12" y="8" w="80" h="16" />
+        <line x="12" y="28" w="442" />
+        <label text="目标" color="#7A8499" x="12" y="44" w="50" h="16" />
+        <slider bind="speed" min="0" max="3000" x="70" y="46" w="280" h="18" on-value_changed="on_speed" />
+        <label bind="speed" preview="1350" color="#0ABDE3" x="360" y="44" w="60" h="16" id="sl_speed" />
+        <label text="加速" color="#7A8499" x="12" y="80" w="50" h="16" />
+        <slider bind="torque" min="1" max="30" x="70" y="82" w="280" h="18" on-value_changed="on_torque" />
+        <label text="5.0s" color="#0ABDE3" x="360" y="80" w="50" h="16" />
+      </panel>
+      <panel id="ctrl_run" x="478" y="0" w="466" h="204" bg="#151B28" radius="8">
+        <label text="运行控制" color="#7A8499" x="12" y="8" w="80" h="16" />
+        <line x="12" y="28" w="442" />
+        <label text="正转" color="#7A8499" x="12" y="50" w="50" h="16" />
+        <switch bind="fwd_on" x="70" y="46" w="50" h="24" on-value_changed="on_fwd" />
+        <label text="运行中" color="#27AE60" x="130" y="50" w="60" h="16" />
+        <label text="节能" color="#7A8499" x="12" y="90" w="50" h="16" />
+        <switch bind="eco_on" x="70" y="86" w="50" h="24" on-value_changed="on_eco" />
+        <label text="关闭" color="#7A8499" x="130" y="90" w="50" h="16" />
+      </panel>
+    </panel>
+  </screen>
+  <screen name="params">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="68" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel x="72" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="电机参数 / Motor" color="#2E86DE" x="12" y="10" w="200" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="额定功率" color="#7A8499" x="12" y="46" w="80" h="16" />
+      <label text="7.5 kW" x="110" y="46" w="80" h="16" />
+      <label text="额定电压" color="#7A8499" x="12" y="72" w="80" h="16" />
+      <label text="380 V AC" x="110" y="72" w="90" h="16" />
+      <label text="额定电流" color="#7A8499" x="12" y="98" w="80" h="16" />
+      <label text="16.5 A" x="110" y="98" w="70" h="16" />
+      <label text="极数" color="#7A8499" x="12" y="124" w="50" h="16" />
+      <dropdown selected="0" x="110" y="120" w="100" h="26" id="dd_poles" on-value_changed="on_poles" options="4P,2P,6P" />
+      <label text="控制模式" color="#7A8499" x="12" y="156" w="80" h="16" />
+      <dropdown selected="0" x="110" y="152" w="120" h="26" id="dd_ctrl_mode" on-value_changed="on_ctrl_mode" options="V/F,Vector,Servo" />
+      <label text="载波频率" color="#7A8499" x="12" y="190" w="80" h="16" />
+      <slider bind="torque" min="2" max="16" x="110" y="192" w="130" h="18" on-value_changed="on_torque" />
+      <label text="8 kHz" color="#0ABDE3" x="250" y="190" w="50" h="16" />
+    </panel>
+    <panel x="386" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="保护参数 / Protection" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="过流保护" color="#7A8499" x="12" y="46" w="80" h="16" />
+      <slider bind="motor_temp" min="50" max="200" x="110" y="48" w="130" h="18" on-value_changed="on_motor_temp" />
+      <label text="150%" color="#0ABDE3" x="250" y="46" w="50" h="16" />
+      <label text="过压保护" color="#7A8499" x="12" y="80" w="80" h="16" />
+      <slider bind="bus_volt" min="600" max="900" x="110" y="82" w="130" h="18" on-value_changed="on_bus_volt" />
+      <label text="800V" color="#0ABDE3" x="250" y="80" w="50" h="16" />
+      <label text="过温阈值" color="#7A8499" x="12" y="114" w="80" h="16" />
+      <slider bind="motor_temp" min="60" max="120" x="110" y="116" w="130" h="18" on-value_changed="on_motor_temp" />
+      <label text="90°C" color="#0ABDE3" x="250" y="114" w="50" h="16" />
+      <label text="失速保护" color="#7A8499" x="12" y="150" w="80" h="16" />
+      <switch bind="fwd_on" x="110" y="146" w="50" h="24" on-value_changed="on_fwd" />
+      <label text="缺相检测" color="#7A8499" x="12" y="186" w="80" h="16" />
+      <switch bind="eco_on" x="110" y="182" w="50" h="24" on-value_changed="on_eco" />
+    </panel>
+    <panel x="700" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="通信 / Communication" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="CAN 波特率" color="#7A8499" x="12" y="46" w="90" h="16" />
+      <dropdown selected="1" x="120" y="42" w="90" h="26" id="dd_can_baud" on-value_changed="on_can_baud" options="250K,500K,1M" />
+      <label text="CAN 节点" color="#7A8499" x="12" y="78" w="80" h="16" />
+      <slider bind="out_curr" min="1" max="127" x="120" y="80" w="120" h="18" on-value_changed="on_out_curr" />
+      <label text="Node 3" color="#0ABDE3" x="250" y="78" w="60" h="16" />
+      <label text="RS485" color="#7A8499" x="12" y="110" w="60" h="16" />
+      <dropdown selected="0" x="120" y="106" w="140" h="26" id="dd_protocol" on-value_changed="on_protocol" options="Modbus RTU,Custom" />
+      <label text="心跳间隔" color="#7A8499" x="12" y="146" w="80" h="16" />
+      <slider bind="speed" min="100" max="5000" x="120" y="148" w="120" h="18" on-value_changed="on_speed" />
+      <label text="1.0s" color="#0ABDE3" x="250" y="146" w="50" h="16" />
+    </panel>
+  </screen>
+  <screen name="alarms">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="130" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel x="72" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#E74C3C" x="12" y="24" w="8" h="8" />
+      <label text="2" color="#E74C3C" font="demo_20" x="28" y="14" w="40" h="28" />
+      <label text="严重" color="#7A8499" x="80" y="20" w="50" h="16" />
+    </panel>
+    <panel x="384" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#F6B93B" x="12" y="24" w="8" h="8" />
+      <label text="3" color="#F6B93B" font="demo_20" x="28" y="14" w="40" h="28" />
+      <label text="警告" color="#7A8499" x="80" y="20" w="50" h="16" />
+    </panel>
+    <panel x="696" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#27AE60" x="12" y="24" w="8" h="8" />
+      <label text="12" color="#27AE60" font="demo_20" x="28" y="14" w="50" h="28" />
+      <label text="正常" color="#7A8499" x="90" y="20" w="50" h="16" />
+    </panel>
+    <panel x="72" y="112" w="924" h="480" bg="#151B28" radius="8" scrollable="true">
+      <label text="时间" color="#7A8499" x="40" y="8" w="60" h="14" />
+      <label text="描述" color="#7A8499" x="120" y="8" w="60" h="14" />
+      <label text="操作" color="#7A8499" x="850" y="8" w="50" h="14" />
+      <line x="10" y="26" w="904" />
+      <panel x="10" y="34" w="904" h="40" bg="#1C2333" radius="4" id="alarm_row1">
+        <led color="#E74C3C" x="10" y="16" w="8" h="8" />
+        <label text="14:22:15" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="电机过流 152% (阈值 150%)" x="110" y="12" w="300" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" id="ack1" on-clicked="ack_alarm" on-long_pressed="ack_row1" />
+      </panel>
+      <panel x="10" y="82" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#E74C3C" x="10" y="16" w="8" h="8" />
+        <label text="13:05:42" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="母线过压 815V (阈值 800V)" x="110" y="12" w="300" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="130" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="12:30:18" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="电机温度偏高 85°C" x="110" y="12" w="250" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="178" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="11:15:33" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="CAN 通信延迟 15ms" x="110" y="12" w="250" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="226" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="09:00:07" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="RS485 未连接" x="110" y="12" w="200" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+    </panel>
+  </screen>
+  <action name="nav_overview">
+    <change-screen screen="overview" />
+  </action>
+  <action name="nav_params">
+    <change-screen screen="params" />
+  </action>
+  <action name="nav_alarms">
+    <change-screen screen="alarms" />
+  </action>
+  <action name="on_speed" />
+  <action name="on_torque" />
+  <action name="on_motor_temp" />
+  <action name="on_bus_volt" />
+  <action name="on_out_curr" />
+  <action name="on_fwd" />
+  <action name="on_eco" />
+  <action name="on_poles" />
+  <action name="on_ctrl_mode" />
+  <action name="on_can_baud" />
+  <action name="on_protocol" />
+  <action name="ack_alarm" />
+  <action name="ack_row1">
+    <anim target="alarm_row1" prop="x" from="10" to="500" time="500" ease="ease_out" instant="true" repeat="2" />
+  </action>
+</ui>
