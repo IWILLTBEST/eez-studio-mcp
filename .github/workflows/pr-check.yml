@@ -1,0 +1,84 @@
+name: pr-check
+
+# Headless visual regression: build the studio fork, run it under xvfb,
+# compile every example IR through ir2eez, drive it over the bridge
+# (check 0/0 + golden pixel-compare per screen). Mirrors LVGL Pro's
+# pr-check.yml idea, plus pixel-level regression.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  visreg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: eez-studio-mcp
+
+      - name: Checkout studio fork
+        uses: actions/checkout@v4
+        with:
+          repository: IWILLTBEST/studio
+          path: studio
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install python deps (PIL/numpy for visreg)
+        run: pip install pillow numpy
+
+      - name: Install electron runtime deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1
+
+      - name: Cache studio node_modules
+        uses: actions/cache@v4
+        with:
+          path: studio/node_modules
+          key: studio-nm-${{ hashFiles('studio/package-lock.json') }}
+
+      - name: Build studio (tsc + gulp release)
+        working-directory: studio
+        run: |
+          npm ci
+          npm run build-src
+
+      - name: Start studio headless (xvfb + bridge)
+        working-directory: studio
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+          DISPLAY: ":99"
+        run: |
+          Xvfb :99 -screen 0 1600x1200x24 &
+          npx electron --trace-warnings --disable-gpu --no-sandbox . &
+          for i in $(seq 1 60); do
+            sleep 3
+            if curl -s --max-time 2 http://127.0.0.1:17620/health | grep -q '"ok"'; then
+              echo "bridge up after ~$((i*3))s"; exit 0
+            fi
+          done
+          echo "bridge never came up"; exit 1
+
+      - name: ci-check (compile + check + goldens)
+        working-directory: eez-studio-mcp
+        run: python tools/ci-check.py --pct 1.0
+
+      - name: Upload diff artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs
+          path: |
+            eez-studio-mcp/golden/*.diff.png
+            eez-studio-mcp/golden/*.last.png
+          if-no-files-found: ignore

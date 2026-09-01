@@ -62,11 +62,21 @@ def call(tool: str, args: dict, timeout: int = 90) -> dict:
     return out.get("result", {})
 
 
-def capture(project: str, screen: str) -> bytes:
+def _shot() -> bytes:
+    data_url = call("screenshot", {}).get("dataUrl", "")
+    if not data_url.startswith("data:image/png;base64,"):
+        raise RuntimeError("screenshot: unexpected payload")
+    return base64.b64decode(data_url.split(",", 1)[1])
+
+
+def capture(project: str, screen: str, stabilize: bool = True) -> bytes:
     """Fresh screenshot of a project page: reopen from disk, then screenshot.
     Paths are normalized to forward slashes (tab identity in the bridge is
     string-based; mixed separators open duplicate tabs). open_project/reload
-    retry — a bridge busy loading another tab answers transient "not found"."""
+    retry — a bridge busy loading another tab answers transient "not found".
+    stabilize=True waits for two identical consecutive frames (paint settled);
+    screens with a continuously animating element (e.g. the lv_calendar header
+    label auto-scrolling) must pass stabilize=False."""
     project = os.path.abspath(project).replace("\\", "/")
     for attempt in range(3):
         try:
@@ -80,10 +90,16 @@ def capture(project: str, screen: str) -> bytes:
     time.sleep(3.5)
     call("navigate", {"screen": screen, "object": f"screen_{screen}"})
     time.sleep(1.5)
-    data_url = call("screenshot", {}).get("dataUrl", "")
-    if not data_url.startswith("data:image/png;base64,"):
-        raise RuntimeError("screenshot: unexpected payload")
-    return base64.b64decode(data_url.split(",", 1)[1])
+    prev = _shot()
+    if not stabilize:
+        return prev
+    for _ in range(6):
+        time.sleep(0.8)
+        cur = _shot()
+        if prev == cur:
+            return cur
+        prev = cur
+    raise RuntimeError("canvas did not stabilize after reload (6 tries)")
 
 
 def load_png(data: bytes):

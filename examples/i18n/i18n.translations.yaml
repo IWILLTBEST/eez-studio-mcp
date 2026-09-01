@@ -1,0 +1,14 @@
+en:
+  speed: Speed
+  start: Start
+  status_ok: All systems nominal
+  stop: Stop
+  temperature: Temperature
+  title: Motor Controller
+zh:
+  speed: 转速
+  start: 启动
+  status_ok: 系统一切正常
+  stop: 停止
+  temperature: 温度
+  title: 电机控制器
