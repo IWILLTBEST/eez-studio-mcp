@@ -438,7 +438,8 @@ class PreviewProvider {
     }
 
     async refreshPixel() {
-        if (!this.panel || !this.currentFile || this.pixelBusy) return;
+        if (!this.panel || !this.currentFile) return;
+        if (this.pixelBusy) { this.pixelQueued = true; return; }   // re-run after the in-flight render instead of dropping (dropped = webview stuck at "compiling & rendering…")
         this.pixelBusy = true;
         status.text = "uixml: rendering (pixel)…";
         try {
@@ -468,6 +469,10 @@ class PreviewProvider {
             status.text = "uixml: pixel preview failed";
         } finally {
             this.pixelBusy = false;
+            if (this.pixelQueued) {
+                this.pixelQueued = false;
+                this.refreshPixel();
+            }
         }
     }
 }
