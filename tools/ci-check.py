@@ -92,18 +92,27 @@ def main() -> int:
         if not ok:
             continue
 
-        # check 0/0
-        try:
-            c = visreg.call("check", {})
-            errs = c.get("numErrors", 99)
-            warns = c.get("numWarnings", 99)
-            record(f"{ex}/check", errs == 0 and warns == 0, f"{errs} errors, {warns} warnings")
-        except Exception as e:
-            record(f"{ex}/check", False, str(e)[:100])
+        # check runs AFTER the first capture: on a fresh headless studio no tab
+        # is open yet, so checking before any open_project reports "no project".
+        # check 放在首次 capture 之后：全新无头 studio 尚无 tab，先 check 会报"没有打开的工程"。
+        checked = False
+
+        def do_check() -> None:
+            nonlocal checked
+            checked = True
+            try:
+                c = visreg.call("check", {})
+                errs = c.get("numErrors", 99)
+                warns = c.get("numWarnings", 99)
+                record(f"{ex}/check", errs == 0 and warns == 0, f"{errs} errors, {warns} warnings")
+            except Exception as e:
+                record(f"{ex}/check", False, str(e)[:100])
 
         for screen, golden, loose in screens:
             try:
                 png = visreg.capture(project, screen, stabilize=not loose)
+                if not checked:
+                    do_check()
                 img = visreg.load_png(png)
                 golden_path = os.path.join(visreg.GOLDEN_DIR, f"{golden}.png")
                 if args.baseline:
