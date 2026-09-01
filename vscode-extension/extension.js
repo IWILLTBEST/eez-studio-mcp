@@ -21,9 +21,22 @@ function out() {
     return output;
 }
 
-function repoRoot() {
+function findRepoRoot(uixmlFile) {
     const cfg = vscode.workspace.getConfiguration("uixml").get("repoRoot");
-    return cfg || path.join(__dirname, "..");
+    if (cfg) return cfg;
+    // walk up from the .uixml file — our repo layout puts ir2eez.py at the root
+    let dir = path.dirname(uixmlFile);
+    for (let i = 0; i < 8; i++) {
+        if (fs.existsSync(path.join(dir, "ir2eez.py"))) return dir;
+        const up = path.dirname(dir);
+        if (up === dir) break;
+        dir = up;
+    }
+    // then workspace folders
+    for (const wf of vscode.workspace.workspaceFolders || []) {
+        if (fs.existsSync(path.join(wf.uri.fsPath, "ir2eez.py"))) return wf.uri.fsPath;
+    }
+    return path.join(__dirname, "..");
 }
 
 function bridgeUrl() {
@@ -72,7 +85,7 @@ function runCompiler(uixmlFile) {
     return new Promise((resolve, reject) => {
         execFile(
             py,
-            [path.join(repoRoot(), "ir2eez.py"), uixmlFile, "-o", project],
+            [path.join(findRepoRoot(uixmlFile), "ir2eez.py"), uixmlFile, "-o", project],
             { timeout: 120000, cwd: path.dirname(uixmlFile) },
             (err, stdout, stderr) => {
                 if (err) reject(new Error(`${err.message}\n${(stderr || stdout).slice(-2000)}`));
@@ -124,11 +137,34 @@ const SKETCH_JS = `
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
   function attrs(el){ const o={}; for(const a of el.attributes) o[a.name]=a.value; return o; }
   function int(o,k,d){ const v=parseInt(o[k]); return isNaN(v)?d:v; }
-  function fontSize(o){ const m=(o['font']||'').match(/(\\d+)$/); return m?(+m[1])*0.9:14; }
+  function fontSize(o){ const m=(o['font']||'').match(/(\\d+)$/); return m?(+m[1]):14; }
 
+  let STR = {}, VARDEF = {};
+  function buildTables(ui) {
+    STR = {}; VARDEF = {};
+    for (const c of ui.children) {
+      if (c.tagName === 'strings') {
+        const dflt = attrs(c)['default'] || 'en';
+        for (const t of c.children) {
+          if (t.tagName !== 'text') continue;
+          const ls = [...t.children].filter(n => n.tagName === 'l');
+          const hit = ls.find(n => attrs(n)['lang'] === dflt) || ls[0];
+          STR[attrs(t)['key']] = hit ? hit.textContent : undefined;
+        }
+      }
+      if (c.tagName === 'variables') {
+        for (const v of c.children) if (v.tagName === 'var') {
+          const a = attrs(v);
+          VARDEF[a['name']] = a['default'] !== undefined ? a['default'] : '0';
+        }
+      }
+    }
+  }
   function labelText(o) {
+    if (o['tr'] && STR[o['tr']] !== undefined) return STR[o['tr']];
     if (o['tr']) return '[' + o['tr'] + ']';
     if (o['text']) return o['text'];
+    if (o['bind'] && VARDEF[o['bind']] !== undefined) return VARDEF[o['bind']];
     if (o['bind']) return '{' + o['bind'] + '}';
     return '';
   }
@@ -237,7 +273,7 @@ const SKETCH_JS = `
       }
       case 'spinbox':
         s += '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+(fill==='none'?'#1A2438':fill)+'" stroke="#3A4B66"/>' +
-             '<text x="'+(x+8)+'" y="'+(y+h/2+5)+'" fill="#5EE6C4" font-size="'+Math.min(h*0.6,20)+'">[- '+esc(o['bind']||'0')+' +]</text>';
+             '<text x="'+(x+8)+'" y="'+(y+h/2+5)+'" fill="#5EE6C4" font-size="'+Math.min(h*0.6,20)+'">[- '+esc(VARDEF[o['bind']]!==undefined?VARDEF[o['bind']]:(o['bind']||'0'))+' +]</text>';
         break;
       case 'textarea':
         s += '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+(fill==='none'?'#0B1220':fill)+'" stroke="#3A4B66"/>' +
@@ -278,6 +314,7 @@ const SKETCH_JS = `
       if (perr) throw new Error(perr.textContent.slice(0,300));
       const ui=doc.documentElement;
       if (ui.tagName!=='ui') throw new Error('root is <'+ui.tagName+'>, expected <ui>');
+      buildTables(ui);
       let pw=480, ph=320;
       const prj=[...ui.children].find(c=>c.tagName==='project');
       if (prj) { pw=int(attrs(prj),'width',480); ph=int(attrs(prj),'height',320); }

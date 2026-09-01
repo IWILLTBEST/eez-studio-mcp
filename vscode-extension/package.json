@@ -2,19 +2,33 @@
   "name": "uixml",
   "displayName": "UIXML for EEZ Studio / LVGL",
   "description": "Language support + live preview + compile commands for UIXML — the XML source format that compiles into EEZ Studio LVGL projects (own vocabulary, not the LVGL XML Specification).",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "IWILLTBEST",
   "license": "GPL-3.0",
-  "engines": { "vscode": "^1.80.0" },
-  "categories": ["Programming Languages", "Snippets", "Other"],
-  "activationEvents": ["onLanguage:uixml", "onCommand:uixml.preview"],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:uixml",
+    "onCommand:uixml.preview"
+  ],
   "main": "./extension.js",
   "contributes": {
     "languages": [
       {
         "id": "uixml",
-        "aliases": ["UIXML", "uixml"],
-        "extensions": [".uixml"],
+        "aliases": [
+          "UIXML",
+          "uixml"
+        ],
+        "extensions": [
+          ".uixml"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -48,9 +62,21 @@
       }
     },
     "commands": [
-      { "command": "uixml.preview", "title": "UIXML: Preview", "category": "UIXML" },
-      { "command": "uixml.compile", "title": "UIXML: Compile", "category": "UIXML" },
-      { "command": "uixml.check", "title": "UIXML: Check (EEZ Studio)", "category": "UIXML" }
+      {
+        "command": "uixml.preview",
+        "title": "UIXML: Preview",
+        "category": "UIXML"
+      },
+      {
+        "command": "uixml.compile",
+        "title": "UIXML: Compile",
+        "category": "UIXML"
+      },
+      {
+        "command": "uixml.check",
+        "title": "UIXML: Check (EEZ Studio)",
+        "category": "UIXML"
+      }
     ]
   }
 }
