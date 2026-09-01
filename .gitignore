@@ -6,3 +6,5 @@ _shots/
 action.h
 node_modules/
 *.eez-extension
+golden/*.last.png
+golden/*.diff.png

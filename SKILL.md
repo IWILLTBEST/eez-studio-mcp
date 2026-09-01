@@ -100,7 +100,7 @@ D:/.../python.exe ir2eez.py <输入.ir.json> -o <输出.eez-project>; echo exit=
 }
 ```
 
-45 个工具，能力域：IR 流水线（read/write_ir、compile、reload、navigate、screenshot）/ 部件级编辑（list/get/update/delete_object、create_widget/screen、undo/redo、goto_object、get_selection，路径或 objID 寻址）/ 样式主题（update_style、set_theme_color、set_preview_theme…）/ 工程文件（read/write/patch_project_json）/ 多工程（list/select/open_project）/ 诊断（read_output、check、build_project）/ 调试（debug_start/stop/control/status、read/write_variable、send_input 点击滑动注入）/ 资产（add_font、add_image）/ screenshot_object 部件特写 / create_project 新建工程。资源：IR/规范/技能文档 + 活资源 eez://checks、eez://debug、eez://state（可订阅，变化即推送）。长操作（check/build/debug_start/add_font…）支持进度通知。
+47 个工具，能力域：IR 流水线（read/write_ir、compile、reload、navigate、screenshot）/ 部件级编辑（list/get/update/delete_object、create_widget/screen、undo/redo、goto_object、get_selection，路径或 objID 寻址）/ 样式主题（update_style、set_theme_color、set_preview_theme…）/ 工程文件（read/write/patch_project_json）/ 多工程（list/select/open_project）/ 诊断（read_output、check、build_project）/ 调试（debug_start/stop/control/status、read/write_variable、send_input 点击滑动注入）/ 资产（add_font、add_image）/ screenshot_object 部件特写 / create_project 新建工程 / **视觉回归（visual_baseline、visual_check）**。资源：IR/规范/技能文档 + 活资源 eez://checks、eez://debug、eez://state（可订阅，变化即推送）。长操作（check/build/debug_start/add_font…）支持进度通知。
 
 ## 字体流水线
 
@@ -124,6 +124,14 @@ font_tool.py compile --src fonts/msyh.ttf --name <名>_<字号> --size <字号> 
 
 - 绑定 label 的**设计时画布渲染 previewValue**（编译器按变量默认值求值），不是运行时表达式——`default` 没写对，截图里显示的就是变量名或 0，视觉比对必然误报
 - 截图前核对 IR `variables` 的 `default` 与期望显示值一致（别名 `value`/`init` 也接受，但别混用）
+
+## 视觉回归（金标准比对）
+
+- 布局定稿后用 `visual_baseline`（或 `python tools/visreg.py baseline --name X --project P --screen S`）存金标准到 `golden/<name>.png`
+- 之后每次 IR 改动交付前跑 `visual_check`：编译 → check 0/0 → visual_check 必须命中金标准；差异超阈值即失败，返回 changedPixels/changedPct/bbox 定位，`golden/<name>.diff.png` 红色标注改动像素
+- 容差：`delta`（单通道差，默认 12，抗字体抗锯齿）、`pct`（改动像素百分比，默认 0.1）
+- 金标准与 Studio 版本/字体渲染绑定：升级 Studio、换字体或改主题后重新 baseline
+- 依赖 python + PIL/numpy；解释器可用 `EEZ_VISREG_PYTHON` 指定
 
 ## 变量运行时语义
 

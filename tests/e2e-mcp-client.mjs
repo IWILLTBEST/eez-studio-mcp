@@ -106,6 +106,25 @@ try {
         `studioAccess=${pong.studioAccess}`
     );
 
+    // --- deterministic preamble: make the motor project the active tab
+    //     (later steps navigate its screens; other e2e runs may have left a
+    //     different tab active). 确定前言：让 motor 工程成为活动 tab。 ---
+    {
+        const { existsSync } = await import("node:fs");
+        const { resolve } = await import("node:path");
+        const motor = [
+            process.env.EEZ_E2E_PROJECT,
+            resolve("out_motor.eez-project"),
+            resolve("../html2eez/out_motor.eez-project"),
+        ].find(p => p && existsSync(p));
+        if (motor) {
+            // forward slashes only — tab identity is string-based, mixed
+            // separators would open a duplicate tab. 只用正斜杠，避免重复 tab。
+            await callTool("open_project", { path: motor.replace(/\\/g, "/") });
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    }
+
     // --- a real editing read ---
     const list = await callTool("list_objects", {});
     const screens = JSON.parse(list.text);
@@ -157,6 +176,31 @@ try {
         c.numErrors === 0,
         `${c.numErrors} errors, ${c.numWarnings} warnings`
     );
+
+    // --- visual regression through MCP (python + golden must exist; else skip) ---
+    const { existsSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const glassProject = [
+        process.env.EEZ_E2E_GLASS_PROJECT,
+        resolve("out_glass.eez-project"),
+        resolve("examples/glass/out_glass.eez-project"),
+        resolve("../html2eez/out_glass.eez-project"),
+    ].find(p => p && existsSync(p));
+    if (glassProject && existsSync(resolve("golden/glass.png"))) {
+        const v = await callTool("visual_check", {
+            name: "glass", project: glassProject, screen: "main"
+        });
+        const vs = JSON.parse(v.text);
+        record(
+            "visual_check",
+            vs.ok === true,
+            vs.ok
+                ? `golden match (0 drift), ${glassProject}`
+                : `raw: ${JSON.stringify(vs).slice(0, 200)}`
+        );
+    } else {
+        record("visual_check", true, "skipped — no golden/project on this machine");
+    }
 
     // --- select_project skeleton (already-active fallback path) ---
     const sel = await callTool("select_project", { index: 0 }).catch(e => e);

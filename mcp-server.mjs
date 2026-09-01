@@ -553,6 +553,44 @@ const TOOLS = [
             required: ["path"],
         },
     },
+    // ---- Visual regression (golden baselines) 视觉回归金标准 ----
+    {
+        name: "visual_baseline",
+        description:
+            "Capture the current page and store it as the golden baseline image " +
+            "(tools/visreg.py): reloads the project from disk, navigates to the screen, " +
+            "screenshots, saves golden/<name>.png. Do this when the layout is known-good. " +
+            "Records the golden baseline image (driven by visreg.py). Requires python (EEZ_VISREG_PYTHON, default python).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                name: { type: "string", description: "Golden name 基线名" },
+                project: { type: "string", description: "Path to the .eez-project 工程路径" },
+                screen: { type: "string", description: "Page name, default main 页面名" },
+            },
+            required: ["name", "project"],
+        },
+    },
+    {
+        name: "visual_check",
+        description:
+            "Re-capture and pixel-compare against the golden baseline (tools/visreg.py). " +
+            "Returns ok=false + changedPixels/changedPct/bbox when the UI drifted (exit-code " +
+            "style: over tolerance = fail). Anti-aliasing tolerance via delta (default 12), " +
+            "pass threshold via pct (default 0.1%). Diff image at golden/<name>.diff.png. " +
+            "Compare against golden baseline; use after every IR change before delivery. Requires python.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                name: { type: "string", description: "Golden name 基线名" },
+                project: { type: "string", description: "Path to the .eez-project 工程路径" },
+                screen: { type: "string", description: "Page name, default main 页面名" },
+                pct: { type: "number", description: "Fail threshold in changed % , default 0.1 差异百分比阈值" },
+                delta: { type: "integer", description: "Per-channel pixel tolerance, default 12 单通道容差" },
+            },
+            required: ["name", "project"],
+        },
+    },
     // ---- Simulator input / theme preview / new project / safe patching 模拟器输入/主题预览/新建工程/安全补丁 ----
     {
         name: "send_input",
@@ -887,6 +925,47 @@ async function callTool(name, arguments_) {
             { type: "text", text },
             { type: "image", data: base64Data, mimeType: "image/png" },
         ];
+    }
+
+    if (name === "visual_baseline" || name === "visual_check") {
+        // Shell out to tools/visreg.py (needs python + PIL/numpy); the last stdout
+        // line is the JSON summary. check exits 1 on diff — that's a result, not an error.
+        // 中文：转调 visreg.py（需 python+PIL/numpy）；check 差异退出码 1 属于结果而非错误。
+        const { execFile } = await import("node:child_process");
+        const py = process.env.EEZ_VISREG_PYTHON || "python";
+        const visreg = path.join(WORKDIR, "tools", "visreg.py");
+        const args = [
+            visreg,
+            name === "visual_baseline" ? "baseline" : "check",
+            "--name", reqArg(arguments_, "name"),
+            "--project", reqArg(arguments_, "project"),
+        ];
+        if (arguments_.screen) args.push("--screen", String(arguments_.screen));
+        if (arguments_.pct != null) args.push("--pct", String(arguments_.pct));
+        if (arguments_.delta != null) args.push("--delta", String(arguments_.delta));
+        const result = await new Promise((resolve) => {
+            execFile(py, args, { timeout: 120000, cwd: WORKDIR }, (err, stdout, stderr) =>
+                resolve({ err, stdout: String(stdout || ""), stderr: String(stderr || "") })
+            );
+        });
+        if (result.err && result.err.code === "ENOENT") {
+            throw new Error(
+                `${py} not found — set EEZ_VISREG_PYTHON to a python with PIL+numpy ` +
+                    `(visual regression needs tools/visreg.py)`
+            );
+        }
+        const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+        const last = lines[lines.length - 1] || "";
+        let summary;
+        try {
+            summary = JSON.parse(last);
+        } catch {
+            throw new Error(
+                `visreg produced no JSON summary (exit ${result.err?.code ?? 0}): ` +
+                    `${(result.stderr || last).slice(0, 300)}`
+            );
+        }
+        return [{ type: "text", text: JSON.stringify(summary) }];
     }
 
     if (name === "read_ir" || name === "read_project_json") {

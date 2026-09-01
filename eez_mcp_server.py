@@ -500,6 +500,46 @@ TOOLS = [
         ),
         inputSchema={"type": "object", "properties": {}},
     ),
+    # ---- Visual regression (golden baselines) 视觉回归金标准 ----
+    Tool(
+        name="visual_baseline",
+        description=(
+            "Capture the current page and store it as the golden baseline image "
+            "(tools/visreg.py): reloads the project from disk, navigates to the screen, "
+            "screenshots, saves golden/<name>.png. Do this when the layout is known-good. "
+            "记录金标准基线图（由 visreg.py 驱动）。Requires python PIL+numpy."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Golden name 基线名"},
+                "project": {"type": "string", "description": "Path to the .eez-project 工程路径"},
+                "screen": {"type": "string", "description": "Page name, default main 页面名"},
+            },
+            "required": ["name", "project"],
+        },
+    ),
+    Tool(
+        name="visual_check",
+        description=(
+            "Re-capture and pixel-compare against the golden baseline (tools/visreg.py). "
+            "Returns ok=false + changedPixels/changedPct/bbox when the UI drifted. "
+            "Anti-aliasing tolerance via delta (default 12), pass threshold via pct "
+            "(default 0.1%). Diff image at golden/<name>.diff.png. "
+            "与金标准比对，IR 改动交付前必跑。Requires python PIL+numpy."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Golden name 基线名"},
+                "project": {"type": "string", "description": "Path to the .eez-project 工程路径"},
+                "screen": {"type": "string", "description": "Page name, default main 页面名"},
+                "pct": {"type": "number", "description": "Fail threshold in changed %, default 0.1 差异百分比阈值"},
+                "delta": {"type": "integer", "description": "Per-channel pixel tolerance, default 12 单通道容差"},
+            },
+            "required": ["name", "project"],
+        },
+    ),
     Tool(
         name="screenshot_object",
         description=(
@@ -1034,6 +1074,38 @@ async def call_tool(name: str, arguments: dict) -> list:
     if name == "ping":
         result = await call_bridge("ping")
         return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+    if name in ("visual_baseline", "visual_check"):
+        # Same harness as the Node server: shell out to tools/visreg.py
+        # (needs python PIL+numpy). check exit 1 = diff, a result not an error.
+        # 中文：与 Node 端同一套 visreg.py；check 差异退出码 1 属于结果。
+        import subprocess
+        import sys
+
+        py = os.environ.get("EEZ_VISREG_PYTHON", sys.executable)
+        visreg = os.path.join(WORKDIR, "tools", "visreg.py")
+        args = [
+            py, visreg,
+            "baseline" if name == "visual_baseline" else "check",
+            "--name", str(arguments["name"]),
+            "--project", str(arguments["project"]),
+        ]
+        if arguments.get("screen"):
+            args += ["--screen", str(arguments["screen"])]
+        if arguments.get("pct") is not None:
+            args += ["--pct", str(arguments["pct"])]
+        if arguments.get("delta") is not None:
+            args += ["--delta", str(arguments["delta"])]
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+        lines = [l for l in proc.stdout.splitlines() if l.strip()]
+        try:
+            summary = json.loads(lines[-1])
+        except (IndexError, json.JSONDecodeError):
+            raise RuntimeError(
+                f"visreg produced no JSON summary (exit {proc.returncode}): "
+                f"{(proc.stderr or proc.stdout)[-300:]}"
+            )
+        return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))]
 
     if name == "screenshot":
         result = await call_bridge("screenshot")
