@@ -113,7 +113,7 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 ```
 
 - **scale** 是 LVGL 9 的刻度盘（8.x 的 meter 在 9.x 工程被 EEZ 禁用，别用）——模式/量程/角度/刻度/标签/分段全进工程
-- **calendar** 的 `today` 设当前日期，`header` 为 none/arrow/dropdown；运行时换日期用动作 `calendarSetTodayDate` 等。**注意：画布里日历头部行有 ±3px 渲染抖动**（重载间非确定），含日历的屏金标准用 `--pct 0.5`
+- **calendar** 的 `today` 设当前日期，`header` 为 none/arrow/dropdown；运行时换日期用动作 `calendarSetTodayDate` 等。**高度必须 ≥240**（编译器自动兜底并警告）：跨 6 周的月份（31 天+周六开头）会撑爆过矮的日历，内部日期矩阵子对象自行滚动——表现为"有的月份滚、有的不滚"，父对象去滚动标志也管不住。**画布渲染注意**：日历头部行在重载间存在非确定渲染（疑似字体加载竞态，字形度量不同），含日历的屏金标准用 `--pct 0.5`
 - **keyboard** 必须先给 textarea 一个 id 再引用；`mode: number` 出数字键盘
 - **spinbox** 的 `bind` 绑 value（EEZ 标记 assignable），`digits` 位数、`rollover` 循环越界
 

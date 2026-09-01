@@ -942,6 +942,17 @@ class Compiler:
         # 固定尺寸日历禁滚动：默认 SCROLLABLE 会让画布每次重载渲染出
         # 微小滚动偏移（金标准抖动的根源），模拟器里还会被拖着滚。
         obj["widgetFlags"] = "CLICKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK"
+        # Height guard: months spanning 6 calendar weeks (31 days starting on
+        # a Saturday etc.) overflow a shorter calendar — the internal date
+        # button-matrix child then scrolls on its own and parent flags cannot
+        # stop it (user-observed: some months scroll, others don't).
+        # 240 = header + weekday row + 6 rows at default fonts (EEZ default).
+        # 高度兜底：跨 6 周的月份撑爆过矮的日历，内部日期矩阵子对象会自行
+        # 滚动（父对象标志管不住，表现为"有的月份滚有的不滚"）。
+        if obj["height"] < 240:
+            print(f"⚠ {p}: calendar height {obj['height']} < 240 — a 6-week month "
+                  f"overflows and the date grid scrolls; grown to 240", file=sys.stderr)
+            obj["height"] = 240
         today = str(n.get("today", "2026-01-01"))
         try:
             yy, mm, dd = (int(v) for v in today.split("-"))
