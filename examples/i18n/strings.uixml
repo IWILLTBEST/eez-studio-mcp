@@ -1,0 +1,29 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <strings default="en">
+    <text key="title">
+      <l lang="en">Motor Controller</l>
+      <l lang="zh">电机控制器</l>
+    </text>
+    <text key="speed">
+      <l lang="en">Speed</l>
+      <l lang="zh">转速</l>
+    </text>
+    <text key="temperature">
+      <l lang="en">Temperature</l>
+      <l lang="zh">温度</l>
+    </text>
+    <text key="start">
+      <l lang="en">Start</l>
+      <l lang="zh">启动</l>
+    </text>
+    <text key="stop">
+      <l lang="en">Stop</l>
+      <l lang="zh">停止</l>
+    </text>
+    <text key="status_ok">
+      <l lang="en">All systems nominal</l>
+      <l lang="zh">系统一切正常</l>
+    </text>
+  </strings>
+</ui>

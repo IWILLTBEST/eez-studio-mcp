@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- i18n demo, split form: logic/strings/screens stitched here. -->
+<ui>
+  <include src="logic.uixml"/>
+  <include src="strings.uixml"/>
+  <include src="screens/main.uixml"/>
+</ui>

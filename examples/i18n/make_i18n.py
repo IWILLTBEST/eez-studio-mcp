@@ -10,7 +10,9 @@ translations.yaml 为 lv_i18n 格式。切换 strings.default 重编译即可预
 """
 import os
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+for _p in (os.path.dirname(os.path.abspath(__file__)),
+           os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")):
+    sys.path.insert(0, _p)
 import uixml
 
 W, H = 480, 320
@@ -65,6 +67,29 @@ ir = {
     }],
 }
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n.uixml")
-uixml.ir_to_xml(ir, out)
-print("written:", out)
+# Qt-style three-plane split: logic (vars+native actions) / strings / screens,
+# stitched by a manifest with <include>. Single-file i18n.uixml stays legal.
+# Qt 式三平面拆分：逻辑/文案/屏幕各自成文件，清单 include 缝合；单文件依旧合法。
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+def write(ir_part: dict, rel: str) -> None:
+    p = os.path.join(HERE, rel)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    uixml.ir_to_xml(ir_part, p)
+    print("written:", p)
+
+write({"strings": ir["strings"]}, "strings.uixml")
+write({"project": ir["project"], "variables": ir["variables"]}, "logic.uixml")
+write({"screens": [ir["screens"][0]]}, os.path.join("screens", "main.uixml"))
+
+manifest = """<?xml version="1.0" encoding="utf-8"?>
+<!-- i18n demo, split form: logic/strings/screens stitched here. -->
+<ui>
+  <include src="logic.uixml"/>
+  <include src="strings.uixml"/>
+  <include src="screens/main.uixml"/>
+</ui>
+"""
+with open(os.path.join(HERE, "project.uixml"), "w", encoding="utf-8", newline="") as f:
+    f.write(manifest)
+print("written:", os.path.join(HERE, "project.uixml"))

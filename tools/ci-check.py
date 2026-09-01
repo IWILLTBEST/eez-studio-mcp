@@ -29,7 +29,7 @@ import visreg  # noqa: E402  (reuse capture/diff/golden plumbing)
 # e.g. the lv_calendar header label auto-scrolls when the text does not fit).
 EXAMPLES = [
     ("glass", "glass.uixml", "make_glass.py", [("main", "glass", False)]),
-    ("i18n", "i18n.uixml", "make_i18n.py", [("main", "i18n", False)]),
+    ("i18n", "project.uixml", "make_i18n.py", [("main", "i18n", False)]),
     ("motor", "motor.uixml", None, [("overview", "motor", False)]),
     ("richdata", "richdata.uixml", "make_richdata.py", [
         ("main", "richdata", False),

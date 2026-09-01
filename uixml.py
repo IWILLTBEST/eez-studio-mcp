@@ -25,6 +25,7 @@ Conventions
 """
 from __future__ import annotations
 
+import os
 import re
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -238,6 +239,22 @@ def _parse_action(elem: ET.Element) -> dict:
 
 
 def xml_to_ir(path: str) -> dict[str, Any]:
+    """Parse a .uixml file into the IR dict. The file may be a complete
+    single-file project OR a manifest with <include src="..."/> elements —
+    included fragments (same <ui> root) are spliced in order, which enables
+    the Qt-style split: project.uixml + logic.uixml + strings.uixml +
+    screens/*.uixml. Includes resolve relative to the including file."""
+    elems, _ = _resolve(path, set())
+    return _elements_to_ir(elems, path)
+
+
+def _resolve(path: str, seen: set[str]) -> tuple[list, list]:
+    """Parse one file, recursively splicing <include> children.
+    Returns (elements, seen-files) for the duplicate check."""
+    absp = os.path.abspath(path)
+    if absp in seen:
+        raise UIXMLError(f"{path}: include cycle detected at {absp}")
+    seen = seen | {absp}
     try:
         tree = ET.parse(path)
     except ET.ParseError as e:
@@ -245,9 +262,24 @@ def xml_to_ir(path: str) -> dict[str, Any]:
     root = tree.getroot()
     if _unns(root.tag) != "ui":
         raise UIXMLError(f"{path}: root element must be <ui>, got <{_unns(root.tag)}>")
-    ir: dict[str, Any] = {}
-
+    out: list = []
     for child in root:
+        if _unns(child.tag) == "include":
+            src = child.get("src")
+            if not src:
+                raise UIXMLError(f"{path}: <include> needs a src attribute")
+            frag = os.path.join(os.path.dirname(os.path.abspath(path)), src)
+            if not os.path.exists(frag):
+                raise UIXMLError(f"{path}: include not found: {src}")
+            out += _resolve(frag, seen)[0]
+        else:
+            out.append(child)
+    return out, seen
+
+
+def _elements_to_ir(elems: list, path: str) -> dict[str, Any]:
+    ir: dict[str, Any] = {}
+    for child in elems:
         tag = _unns(child.tag)
         if tag == "project":
             proj: dict = {}

@@ -7,6 +7,20 @@ AI / 人只写语义：**不写 objID、不写连线、不写节点坐标**—�
 python ir2eez.py <input.ir.json> -o <output.eez-project>
 ```
 
+## 文件分离（Qt 式三平面，可选）
+
+单文件依旧合法；大工程可按"改文件的人是谁"拆分，清单 `<include>` 缝合（相对路径、环检测、screen/widget/text 重名报错、`<project>` 只许一份）：
+
+```text
+examples/i18n/
+├── project.uixml      ← 清单：<include> logic / strings / screens（编译入口）
+├── logic.uixml        ← 逻辑平面：<project> + <var>（固件工程师的接口，生成 action.h）
+├── strings.uixml      ← 文案平面：翻译者只碰这里
+└── screens/main.uixml ← UI 平面：界面 + UI 内部编排（切屏/动画），设计者/AI 迭代
+```
+
+拆分发生在 uixml 解析层（合并成单一 IR），编译器零改动；i18n 示例即拆分形态，金标准 0.0% 自证无损。
+
 ## 顶层结构
 
 ```jsonc

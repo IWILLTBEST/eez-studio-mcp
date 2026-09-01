@@ -2,7 +2,7 @@
   "name": "uixml",
   "displayName": "UIXML for EEZ Studio / LVGL",
   "description": "Language support + live preview + compile commands for UIXML — the XML source format that compiles into EEZ Studio LVGL projects (own vocabulary, not the LVGL XML Specification).",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "IWILLTBEST",
   "license": "GPL-3.0",
   "engines": { "vscode": "^1.80.0" },
