@@ -7,7 +7,7 @@
     "misc": {
       "patterns": [
         { "include": "#comment" },
-        { "include": "#doctype" },
+        { "include": "#procinst" },
         { "include": "#tag" }
       ]
     },
@@ -16,10 +16,15 @@
       "end": "-->",
       "name": "comment.block.uixml"
     },
-    "doctype": {
-      "begin": "<\\?xml",
-      "end": "\\?>",
-      "name": "meta.tag.preprocessor.uixml"
+    "procinst": {
+      "begin": "(<\\?)([a-zA-Z][\\w.-]*)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.uixml" },
+        "2": { "name": "entity.name.tag.uixml" }
+      },
+      "end": "(\\?>)",
+      "endCaptures": { "1": { "name": "punctuation.definition.tag.uixml" } },
+      "patterns": [{ "include": "#attr" }]
     },
     "tag": {
       "name": "meta.tag.uixml",
@@ -36,12 +41,11 @@
       "patterns": [
         {
           "name": "meta.attribute.uixml",
-          "begin": "((?:[a-zA-Z][\\w:-]*))(=)",
+          "begin": "((?:on-[a-zA-Z-]+|lv:[a-zA-Z-]+|[a-zA-Z][\\w:-]*))(=)",
           "beginCaptures": {
             "1": { "name": "entity.other.attribute-name.uixml" },
             "2": { "name": "keyword.operator.assignment.uixml" }
           },
-          "end": "(?<=\\G\"|')(.*)(\"|')",
           "end": "(?<=\"|')",
           "patterns": [{ "include": "#string" }]
         },

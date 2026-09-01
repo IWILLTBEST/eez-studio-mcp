@@ -2,9 +2,9 @@
   "name": "uixml",
   "displayName": "UIXML for EEZ Studio / LVGL",
   "description": "Language support + live preview + compile commands for UIXML — the XML source format that compiles into EEZ Studio LVGL projects (own vocabulary, not the LVGL XML Specification).",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "IWILLTBEST",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -78,5 +78,9 @@
         "category": "UIXML"
       }
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IWILLTBEST/eez-studio-mcp"
   }
 }
