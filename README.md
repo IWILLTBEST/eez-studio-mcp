@@ -1,5 +1,7 @@
 # eez-studio-mcp
 
+[![pr-check](https://github.com/IWILLTBEST/eez-studio-mcp/actions/workflows/pr-check.yml/badge.svg)](https://github.com/IWILLTBEST/eez-studio-mcp/actions/workflows/pr-check.yml)
+
 **Turn EEZ Studio into an AI-drivable LVGL UI editor.**
 
 An MCP (Model Context Protocol) server + AI skill + IR compiler that lets Claude, Cursor, ZCode, DSH or any MCP client read and edit LVGL projects *inside* EEZ Studio — widget by widget, style by style — with screenshots, live checking, a wasm simulator, and even input injection.
