@@ -166,6 +166,8 @@ def _parse_widget(elem: ET.Element) -> dict:
             if not name:
                 _err(child, "<state> needs a name attribute (e.g. PRESSED)")
             node.setdefault("states", {})[name] = st
+        elif tag == "trigger":
+            node.setdefault("flow", []).append(_parse_trigger(child))
         else:
             kids.append(_parse_widget(child))
     if kids:
@@ -201,7 +203,11 @@ def _collect_named_list(node: dict, elem: ET.Element) -> None:
 
 
 def _parse_children(elem: ET.Element) -> list[dict]:
-    return [_parse_widget(c) for c in elem
+    return _parse_children_list(list(elem))
+
+
+def _parse_children_list(elems: list) -> list[dict]:
+    return [_parse_widget(c) for c in elems
             if _unns(c.tag) not in ("series", "section", "tab", "options", "header")]
 
 
@@ -232,7 +238,7 @@ def _parse_action(elem: ET.Element) -> dict:
             _err(elem, f"unknown step verb <{tag}> (expected one of {sorted(_STEP_VERBS)})")
         step: dict[str, Any] = dict(_STEP_VERBS[tag])
         _parse_step_or_widget_attrs(child, step)
-        steps.append(step)
+        steps.append(_fix_step(step))
     if steps:  # empty steps = native action (no steps key in IR)
         act["steps"] = steps
     return act
@@ -335,13 +341,45 @@ def _elements_to_ir(elems: list, path: str) -> dict[str, Any]:
 
 
 def _parse_container(elem: ET.Element) -> dict:
-    """<screen>/<widget> body: attributes + children, no type."""
+    """<screen>/<widget> body: attributes + children (+ page-level <trigger>
+    flows), no type."""
     node: dict = {}
     _parse_attrs(elem, node)
-    kids = _parse_children(elem)
+    rest = [c for c in elem if _unns(c.tag) != "trigger"]
+    flow = [_parse_trigger(c) for c in elem if _unns(c.tag) == "trigger"]
+    kids = _parse_children_list(rest)
     if kids:
         node["children"] = kids
+    if flow:
+        node["flow"] = flow
     return node
+
+
+def _fix_step(step: dict) -> dict:
+    """Steps parsed through the generic attr coercion need a few type repairs:
+    set.value is an EEZ *expression* (string) even when it looks numeric."""
+    if step.get("op") == "set" and "value" in step and not isinstance(step["value"], str):
+        step["value"] = str(step["value"])
+    return step
+
+
+def _parse_trigger(elem: ET.Element) -> dict:
+    # page-level flow: a widget event pin wired to a step chain
+    # (compiles to handlerType=flow + connectionLines). 页面级流。
+    when: dict[str, Any] = {}
+    _parse_attrs(elem, when)
+    if "id" not in when:
+        _err(elem, "<trigger> needs an id attribute (the widget id)")
+    when.setdefault("event", "clicked")
+    trig: dict[str, Any] = {"when": when, "steps": []}
+    for sc in elem:
+        stag = _unns(sc.tag)
+        if stag not in _STEP_VERBS:
+            _err(sc, f"unknown step verb <{stag}> inside <trigger>")
+        step: dict[str, Any] = dict(_STEP_VERBS[stag])
+        _parse_step_or_widget_attrs(sc, step)
+        trig["steps"].append(_fix_step(step))
+    return trig
 
 
 # ---------------- IR -> XML ----------------
@@ -353,7 +391,7 @@ def _fmt_attr(val: Any) -> str:
 
 
 _SPECIAL_KEYS = ("type", "children", "series", "sections", "tabs", "events",
-                 "lv", "options", "header", "states")
+                 "lv", "options", "header", "states", "flow")
 
 
 def _widget_to_elem(node: dict, tag: str) -> ET.Element:
@@ -386,6 +424,13 @@ def _widget_to_elem(node: dict, tag: str) -> ET.Element:
         for c in t.get("children") or []:
             child_tag = str(c["type"]) if "type" in c else "instance"
             te.append(_widget_to_elem(c, child_tag))
+    for trig in node.get("flow") or []:
+        tre = ET.SubElement(elem, "trigger")
+        when = trig.get("when") or {}
+        tre.set("id", str(when.get("id", "")))
+        tre.set("event", str(when.get("event", "clicked")))
+        for step in trig.get("steps") or []:
+            tre.append(_step_to_elem(step))
     for k in ("options", "header"):
         vals = node.get(k)
         if isinstance(vals, list):
@@ -401,20 +446,24 @@ def _widget_to_elem(node: dict, tag: str) -> ET.Element:
 _VERB_TO_TAG = {(v.get("action") or v["op"]): tag for tag, v in _STEP_VERBS.items()}
 
 
+def _step_to_elem(step: dict) -> ET.Element:
+    op = step.get("op")
+    key = step.get("action") if op == "lvgl" else op
+    tag = _VERB_TO_TAG.get(key, "lvgl")
+    se = ET.Element(tag)
+    for k, v in step.items():
+        if k == "op":
+            continue
+        if k == "action" and tag != "lvgl":
+            continue  # implied by the verb element
+        se.set(_key_to_dash(k), _fmt_attr(v))
+    return se
+
+
 def _action_to_elem(act: dict) -> ET.Element:
     elem = ET.Element("action", {"name": str(act["name"])})
     for step in act.get("steps") or []:
-        op = step.get("op")
-        key = step.get("action") if op == "lvgl" else op
-        tag = _VERB_TO_TAG.get(key, "lvgl")
-        se = ET.Element(tag)
-        for k, v in step.items():
-            if k == "op":
-                continue
-            if k == "action" and tag != "lvgl":
-                continue  # implied by the verb element
-            se.set(_key_to_dash(k), _fmt_attr(v))
-        elem.append(se)
+        elem.append(_step_to_elem(step))
     return elem
 
 

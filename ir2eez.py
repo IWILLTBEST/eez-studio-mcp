@@ -1314,37 +1314,8 @@ class Compiler:
             # regular-page widgets; widgets inside a user widget page are visible only to
             # that page's own flow — internal component interactions must go through this.
             # 页面级 flow：组件事件引脚直连动作链；user widget 内部交互必须走这里。
-            flow_lines: list[dict[str, Any]] = []
-
-            def find_by_id(objs: list, ident: str) -> dict[str, Any] | None:
-                full = self.id_map.get(ident, ident)   # when.id may use the short id when.id 可写简短 id
-                for o in objs:
-                    if o.get("identifier") == full:
-                        return o
-                    r = find_by_id(o.get("children", []), ident)
-                    if r:
-                        return r
-                return None
-
-            for fi, trigger in enumerate(node.get("flow") or []):
-                tp = f"{p}.flow[{fi}]"
-                when = trigger.get("when") or {}
-                wid = need_str(f"{tp}.when.id", when.get("id"))
-                evt = str(need_str(f"{tp}.when.event", when.get("event"), "clicked")).upper()
-                target_widget = find_by_id(comps, wid)
-                if target_widget is None:
-                    self.err(f"{tp}.when.id", f"no component with id {wid!r} on this page")
-                    continue
-                target_widget["eventHandlers"].append({
-                    "objID": oid(),
-                    "eventName": evt,
-                    "handlerType": "flow",
-                })
-                fcomps, flines = self.flow_nodes(
-                    trigger.get("steps") or [], f"{tp}", 60 + fi * 100,
-                    entry=(target_widget["objID"], evt))
-                comps.extend(fcomps)
-                flow_lines.extend(flines)
+            flow_comps, flow_lines = self._page_flow(node, p, comps)
+            comps.extend(flow_comps)
 
             page = {
                 "objID": oid(),
@@ -1376,10 +1347,14 @@ class Compiler:
         children_node = {"children": copy.deepcopy(node.get("children") or []),
                          "layout": node.get("layout"), "gap": node.get("gap")}
         self.fill_children(root, children_node, p)
+        # Regular pages support page-level flows too — same wiring as user
+        # widgets (historical gap: only the user-widget branch wired them).
+        # 普通页同样接页面级 flow（历史缺口：原来只有 user-widget 分支接线）。
+        flow_comps, flow_lines = self._page_flow(node, p, [root])
         page: dict[str, Any] = {
             "objID": oid(),
-            "components": [root],
-            "connectionLines": [],
+            "components": [root] + flow_comps,
+            "connectionLines": flow_lines,
             "localVariables": [],
             "componentGroups": [],
             "userProperties": [],
@@ -1390,6 +1365,48 @@ class Compiler:
         if is_user_widget:
             page["isUsedAsUserWidget"] = True
         return page
+
+    def _page_flow(self, node: dict[str, Any], p: str,
+                   roots: list) -> tuple[list, list]:
+        """Wire page-level triggers (node.flow): each wires a widget event pin
+        (handlerType=flow) to a generated step chain. Returns (flow components,
+        connection lines) for the caller to splice into the page.
+        页面级 trigger 接线：事件引脚 → 步骤链组件 + 连线。"""
+        comps: list[dict[str, Any]] = []
+        lines: list[dict[str, Any]] = []
+        if not (node.get("flow") or []):
+            return comps, lines
+
+        def find_by_id(objs: list, ident: str) -> dict[str, Any] | None:
+            full = self.id_map.get(ident, ident)   # when.id may use the short id when.id 可写简短 id
+            for o in objs:
+                if o.get("identifier") == full:
+                    return o
+                r = find_by_id(o.get("children", []), ident)
+                if r:
+                    return r
+            return None
+
+        for fi, trigger in enumerate(node.get("flow") or []):
+            tp = f"{p}.flow[{fi}]"
+            when = trigger.get("when") or {}
+            wid = need_str(f"{tp}.when.id", when.get("id"))
+            evt = str(need_str(f"{tp}.when.event", when.get("event"), "clicked")).upper()
+            target_widget = find_by_id(roots, wid)
+            if target_widget is None:
+                self.err(f"{tp}.when.id", f"no component with id {wid!r} on this page")
+                continue
+            target_widget["eventHandlers"].append({
+                "objID": oid(),
+                "eventName": evt,
+                "handlerType": "flow",
+            })
+            fcomps, flines = self.flow_nodes(
+                trigger.get("steps") or [], f"{tp}", 60 + fi * 100,
+                entry=(target_widget["objID"], evt))
+            comps.extend(fcomps)
+            lines.extend(flines)
+        return comps, lines
 
     def compile(self) -> dict[str, Any]:
         # 1) user widget definition pages 定义页
@@ -1903,11 +1920,72 @@ def check_project(project: dict[str, Any]) -> list[str]:
 
 # ---------- Main entry 主入口 ----------
 
+def compiler_meta(compiler: "Compiler") -> dict[str, Any]:
+    """Side-car data the .eez-project cannot carry but the reverse importer
+    (eez2ir) needs: strings default language, project font, rich-widget
+    structure (table cols/rows/header, chart series, roller options live only
+    in ui_ext.h). 反编译所需的伴生数据（这些不进工程文件）。"""
+    meta: dict[str, Any] = {}
+    if compiler.rich_widgets:
+        meta["rich_widgets"] = compiler.rich_widgets
+    if compiler.strings:
+        meta["strings_default"] = compiler.strings_default
+    if compiler.default_font:
+        meta["default_font"] = compiler.default_font
+    pname = (compiler.ir.get("project") or {}).get("name")
+    if pname:
+        meta["project_name"] = str(pname)
+    return meta
+
+
+def run_import(eez_path: str, out_path: str) -> int:
+    """Reverse direction: .eez-project (+ side-cars) → IR → uixml. Writes only
+    after a self-check (recompile must reproduce the project canonically)."""
+    import shutil
+    import eez2ir
+    import uixml
+    with open(eez_path, "r", encoding="utf-8") as f:
+        project = json.load(f)
+    meta, translations = eez2ir.load_sidecars(eez_path)
+    try:
+        ir = eez2ir.eez_to_ir(project, meta, translations)
+    except eez2ir.EEZImportError as e:
+        print(f"✗ import: {e}", file=sys.stderr)
+        return 1
+    try:
+        recompiled = Compiler(ir).compile()
+    except IRError as e:
+        print(f"✗ recompiling the imported IR failed:\n  {e}", file=sys.stderr)
+        return 1
+    diffs = eez2ir.canonical_diff(project, recompiled)
+    if diffs:
+        print("✗ import self-check failed — the .eez-project differs from a "
+              "recompile of the imported IR (out-of-subset edits?):", file=sys.stderr)
+        for d in diffs[:30]:
+            print(f"  - {d}", file=sys.stderr)
+        return 1
+    if os.path.exists(out_path):
+        bak = out_path + ".bak"
+        shutil.copyfile(out_path, bak)
+        print(f"backup → {bak}")
+    uixml.ir_to_xml(ir, out_path)
+    print(f"✓ Imported {eez_path}")
+    print(f"  → {out_path}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="IR(JSON) → EEZ Studio .eez-project (LVGL)")
-    ap.add_argument("input", help="path to the source file (.uixml preferred, or legacy .ir.json)")
-    ap.add_argument("-o", "--output", default="out_ir.eez-project", help="output file")
+    ap.add_argument("input", help="path to the source file (.uixml preferred, legacy .ir.json, or .eez-project to import)")
+    ap.add_argument("-o", "--output", default=None, help="output file")
     args = ap.parse_args(argv)
+
+    # Reverse channel: .eez-project → uixml (Studio hand-edits flow back to
+    # the XML source). 反向通道：Studio 手改进度回流到 XML 源。
+    if args.input.lower().endswith(".eez-project"):
+        out = args.output or (os.path.splitext(args.input)[0] + ".uixml")
+        return run_import(args.input, out)
+    args.output = args.output or "out_ir.eez-project"
 
     # Dual source entry: .uixml (XML surface syntax, preferred) or legacy
     # .ir.json — both produce the same IR dict. 双入口：.uixml 为主，.ir.json 兼容。
@@ -1943,9 +2021,15 @@ def main(argv: list[str]) -> int:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
+    # ir_meta.json side-car for the reverse importer (see compiler_meta).
+    meta = compiler_meta(compiler)
+    if meta:
+        meta_path = os.path.splitext(args.output)[0] + ".ir_meta.json"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
     # action.h: the native action list; firmware includes it and implements these callbacks (porting interface). action.h：native 动作清单，固件实现这些回调。
     if compiler.native_actions:
-        import os
         h_path = os.path.join(
             os.path.dirname(os.path.abspath(args.output)) or ".", "action.h"
         )
@@ -1976,7 +2060,6 @@ def main(argv: list[str]) -> int:
     # ui_ext.h/.c：富数据部件运行时装配。screens.c 现在生成 objects.<id> 命名句柄，
     # 生成物直接可编译：ui_ext_init() 配置图表/表格，chart_<id>_push() 喂数据。
     if any(w["kind"] in ("chart", "table") for w in compiler.rich_widgets):
-        import os
         ext_h = os.path.splitext(args.output)[0] + ".ui_ext.h"
         ext_c = os.path.splitext(args.output)[0] + ".ui_ext.c"
         H = [
@@ -2070,7 +2153,6 @@ def main(argv: list[str]) -> int:
     # firmware resolves T"key" at runtime via the translate hook (upstream #1045).
     # translations.yaml（lv_i18n 格式）：lv_i18n CLI 编译成 C，固件运行时经翻译钩子解析 T"key"。
     if compiler.tr_keys or compiler.strings:
-        import os
         yaml_path = os.path.splitext(args.output)[0] + ".translations.yaml"
         unused = set(compiler.strings) - compiler.tr_keys
         if unused:

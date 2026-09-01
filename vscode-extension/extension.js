@@ -95,6 +95,25 @@ function runCompiler(uixmlFile) {
     });
 }
 
+/** Reverse channel: pull EEZ Studio hand-edits back into .uixml. The importer
+ * self-checks (recompile must reproduce the project canonically) and refuses
+ * out-of-subset edits; the previous uixml is kept as .bak. */
+function runImport(eezFile) {
+    const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
+    const out = eezFile.replace(/\.eez-project$/i, ".uixml");
+    return new Promise((resolve, reject) => {
+        execFile(
+            py,
+            [path.join(findRepoRoot(eezFile), "ir2eez.py"), eezFile, "-o", out],
+            { timeout: 120000, cwd: path.dirname(eezFile) },
+            (err, stdout, stderr) => {
+                if (err) reject(new Error(`${err.message}\n${(stderr || stdout).slice(-2500)}`));
+                else resolve({ stdout: String(stdout), out });
+            }
+        );
+    });
+}
+
 /** Textual include inlining for the sketch: replace <include src=…/> with the
  *  fragment's <ui> inner content (recursion-capped, missing files tolerated). */
 function inlineIncludes(text, baseDir, depth = 0) {
@@ -498,6 +517,31 @@ function activate(context) {
         preview.show(f);
     });
 
+    const importCmd = vscode.commands.registerCommand("uixml.import", async () => {
+        let eez = vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.fileName;
+        if (!eez || !eez.toLowerCase().endsWith(".eez-project")) {
+            const picked = await vscode.window.showOpenDialog({
+                title: "UIXML: pick the .eez-project to import (Studio hand-edits flow back to XML)",
+                filters: { "EEZ Studio project": ["eez-project"] },
+            });
+            if (!picked) return;
+            eez = picked[0].fsPath;
+        }
+        status.text = "uixml: importing…";
+        try {
+            const r = await runImport(eez);
+            out().appendLine(r.stdout);
+            status.text = "uixml: imported ✓";
+            vscode.window.showInformationMessage(`Imported → ${path.basename(r.out)} (self-check passed, .bak kept)`);
+            vscode.window.showTextDocument(vscode.Uri.file(r.out));
+        } catch (e) {
+            out().appendLine(String(e.message || e));
+            out().show();
+            status.text = "uixml: import refused";
+            vscode.window.showErrorMessage("Import refused — see UIXML output (out-of-subset edits or missing side-cars)");
+        }
+    });
+
     const onChange = vscode.workspace.onDidChangeTextDocument((e) => preview.onDocChanged(e.document));
     const onSave = vscode.workspace.onDidSaveTextDocument((doc) => {
         if (doc.fileName.toLowerCase().endsWith(".uixml") && preview.currentFile === doc.fileName) {
@@ -505,7 +549,7 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(compileCmd, checkCmd, previewCmd, onChange, onSave, status);
+    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, onChange, onSave, status);
 }
 
 function deactivate() {}

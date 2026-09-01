@@ -172,6 +172,29 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 - 事件引用了未定义的 action → 警告 + 自动生成 native 空壳（不报错）
 - lvgl op 已实现：`changeScreen` / `anim` / `objSetY` / `objAddState` / `objClearState` / `objAddFlag` / `objClearFlag` / `labelSetText`
 
+### 页面级 flow（trigger，屏幕与 user widget 均可）
+
+不定义具名 action，把步骤直接挂到页内某部件的事件引脚上（编译成 `handlerType=flow` + 连线）：
+
+```xml
+<screen name="main">
+  <button id="go" x="10" y="10" text="Go" />
+  <trigger id="go" event="clicked">
+    <set variable="speed_val" value="1500" />
+    <delay ms="300" />
+    <anim target="go" prop="y" from="10" to="200" time="500" />
+  </trigger>
+</screen>
+```
+
+IR 形态：`screen.flow = [{"when": {"id","event"}, "steps": [...]}]`（`event` 默认 `clicked`，`id` 可写简短 id）。
+
+### 反向导入（.eez-project → uixml）
+
+`python ir2eez.py project.eez-project -o project.uixml`（VS Code 命令 `UIXML: Import from .eez-project`）——把 EEZ Studio 里的手改回流成 uixml。写回前做自检：反编译结果重新编译必须与工程 canonical 相等，否则拒绝写入（防超纲内容静默丢失）；旧 uixml 备份为 `.bak`。反编译依赖两个伴生文件（编译时自动生成在同目录）：
+- `*.ir_meta.json` — strings 默认语言、工程默认字体、富数据部件结构（table 列行表头 / chart 序列 / roller 选项；这些不进工程文件本体）
+- `*.translations.yaml` — lv_i18n 译文表
+
 ### anim（属性动画）
 
 | 字段 | 取值 | 说明 |

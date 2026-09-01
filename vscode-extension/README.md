@@ -13,6 +13,7 @@ Language support + live preview + compile commands for **UIXML** — the XML sou
   - **Sketch** mode: instant SVG approximation (no toolchain needed), shows translated strings and variable default values
   - **Pixel** mode: golden-grade render through the real toolchain
 - **UIXML: Compile** — `ir2eez.py <file>.uixml -o <file>.eez-project`
+- **UIXML: Import from .eez-project** — reverse channel: pull EEZ Studio hand-edits back into `.uixml`. Self-checks (recompile must reproduce the project) and refuses out-of-subset edits instead of silently dropping them; keeps a `.bak` of the previous source. Compile also writes the `<base>.ir_meta.json` / `<base>.translations.yaml` side-cars the importer needs.
 - **UIXML: Check** — runs EEZ Studio's project check (0 errors / 0 warnings expected)
 
 ## Syntax 语法说明
@@ -36,11 +37,19 @@ A split form keeps exactly one `<project>`; screens/widgets/text keys must not d
 | `<strings default="en"><text key><l lang="en">…` | i18n table, `tr` targets it |
 | `<screen name background-color?>` | one screen per file when split |
 
-**Widgets 部件** — 23 tags: `panel container label button image slider bar switch checkbox led arc scale meter chart table list tabview calendar keyboard spinbox roller textarea`. Attributes are IR fields with dashes: `x y w h color bg radius font border-width` …
+**Widgets 部件** — 23 tags: `panel container label button image slider bar switch checkbox led arc scale chart table tabview calendar keyboard spinbox roller textarea spinner canvas line`. Attributes are IR fields with dashes: `x y w h color bg radius font border-width` …
 
 - Text: `text="静态"` static, `tr="key"` translated, `bind="var"` bound (preview shows the default value)
-- Children: `<state>` (button/checkbox states), `<instance>` (style reuse), `<series>` (chart), `<section>` (arc/scale ranges), `<tab>` (tabview), plain child elements for `options` (roller/dropdown, comma-separated)
-- Events: `on-clicked="…"` / `on-value-changed="…"` / `on-checked="…"` — value is a semicolon-separated step list: `change-screen:main; set:speed_val=1500; delay:500; anim:label_val_power,300,0,100; call:fn_name; lvgl:lv_obj_add_flag,...`
+- Children: `<state>` (selected-state styles), `<instance widget="Name">` (user widget reuse), `<series>` (chart), `<section>` (arc/scale ranges), `<tab>` (tabview), plain child elements for `options` (roller/dropdown, comma-separated)
+- Events: `on-clicked="action_name"` — value is an `<action>` name (defined in a top `<action>` element)
+- Page-level flow: steps wired straight to a widget event pin, no named action needed:
+  ```xml
+  <trigger id="go" event="clicked">
+    <set variable="speed_val" value="1500"/>
+    <delay ms="300"/>
+    <anim target="go" prop="y" from="10" to="200" time="500"/>
+  </trigger>
+  ```
 - LVGL passthrough: any `lv:xxx-attr` becomes a native style property untouched
 
 Full reference: [IR_SCHEMA.md](https://github.com/IWILLTBEST/eez-studio-mcp/blob/main/IR_SCHEMA.md) in the repo.
