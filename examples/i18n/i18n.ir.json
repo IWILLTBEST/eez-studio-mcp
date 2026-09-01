@@ -1,0 +1,162 @@
+{
+ "project": {
+  "name": "i18n-demo",
+  "width": 480,
+  "height": 320,
+  "font": "cn_24"
+ },
+ "strings": {
+  "default": "en",
+  "texts": {
+   "title": {
+    "en": "Motor Controller",
+    "zh": "电机控制器"
+   },
+   "speed": {
+    "en": "Speed",
+    "zh": "转速"
+   },
+   "temperature": {
+    "en": "Temperature",
+    "zh": "温度"
+   },
+   "start": {
+    "en": "Start",
+    "zh": "启动"
+   },
+   "stop": {
+    "en": "Stop",
+    "zh": "停止"
+   },
+   "status_ok": {
+    "en": "All systems nominal",
+    "zh": "系统一切正常"
+   }
+  }
+ },
+ "variables": [
+  {
+   "name": "speed_val",
+   "type": "integer",
+   "default": 1350
+  }
+ ],
+ "screens": [
+  {
+   "name": "main",
+   "children": [
+    {
+     "type": "panel",
+     "id": "root",
+     "x": 0,
+     "y": 0,
+     "w": 480,
+     "h": 320,
+     "bg": "#101828",
+     "radius": 0,
+     "children": [
+      {
+       "type": "label",
+       "id": "title",
+       "tr": "title",
+       "x": 24,
+       "y": 20,
+       "w": 360,
+       "h": 34,
+       "font": "cn_24",
+       "color": "#E8EFFA"
+      },
+      {
+       "type": "label",
+       "id": "row_speed",
+       "tr": "speed",
+       "x": 24,
+       "y": 84,
+       "w": 150,
+       "h": 26,
+       "color": "#8FA0BC"
+      },
+      {
+       "type": "label",
+       "id": "val_speed",
+       "bind": "speed_val",
+       "x": 210,
+       "y": 84,
+       "w": 120,
+       "h": 26,
+       "color": "#5EE6C4"
+      },
+      {
+       "type": "label",
+       "id": "row_temp",
+       "tr": "temperature",
+       "x": 24,
+       "y": 124,
+       "w": 150,
+       "h": 26,
+       "color": "#8FA0BC"
+      },
+      {
+       "type": "label",
+       "id": "status",
+       "tr": "status_ok",
+       "x": 24,
+       "y": 168,
+       "w": 400,
+       "h": 26,
+       "color": "#5A6A86"
+      },
+      {
+       "type": "button",
+       "id": "btn_start",
+       "text": "",
+       "x": 24,
+       "y": 220,
+       "w": 90,
+       "h": 48,
+       "radius": 10,
+       "bg": "#1E7F5C",
+       "color": "#FFFFFF"
+      },
+      {
+       "type": "label",
+       "id": "btn_start_lbl",
+       "tr": "start",
+       "x": 24,
+       "y": 233,
+       "w": 90,
+       "h": 24,
+       "color": "#FFFFFF",
+       "align": "center",
+       "font": "cn_24"
+      },
+      {
+       "type": "button",
+       "id": "btn_stop",
+       "text": "",
+       "x": 130,
+       "y": 220,
+       "w": 90,
+       "h": 48,
+       "radius": 10,
+       "bg": "#7A2E3A",
+       "color": "#FFFFFF"
+      },
+      {
+       "type": "label",
+       "id": "btn_stop_lbl",
+       "tr": "stop",
+       "x": 130,
+       "y": 233,
+       "w": 90,
+       "h": 24,
+       "color": "#FFFFFF",
+       "align": "center",
+       "font": "cn_24"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

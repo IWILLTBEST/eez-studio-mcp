@@ -74,6 +74,14 @@ def need_str(path: str, val: Any, default: str | None = None) -> str:
     return val
 
 
+def yaml_str(s: str) -> str:
+    """Plain YAML scalar when safe, double-quoted otherwise (lv_i18n translations).
+    安全时输出裸标量，否则加双引号（lv_i18n 译文表）。"""
+    if s and not any(c in s for c in ":#'\"\n\t") and not s[0] in " -?*&!|>%@`" and not s.endswith(" "):
+        return s
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 # ---------- Size estimation (for flex auto-grow & default sizes) 尺寸估算（flex 容器自动撑大 & 默认尺寸） ----------
 
 def estimate_text_width(text: str, font_size: int) -> int:
@@ -249,6 +257,20 @@ class Compiler:
         # Which events reference each action (explicit ones too; used for action.h signatures). 每个动作被哪些事件引用（action.h 签名用）。
         self.action_event_kinds: dict[str, set[str]] = {}
         self.vars = VarCollector(ir.get("variables") or [])
+        # i18n: IR "strings" section. strings = {"default": "en", "texts": {key: {lang: text}}}
+        # tr:"key" labels compile to T"key" expressions (upstream #1045 → lv_i18n);
+        # translations.yaml (lv_i18n format) is written next to the output.
+        # i18n 字符串表：tr 引用的 key 编译成 T"key" 表达式，译文表落 translations.yaml。
+        strings = ir.get("strings") or {}
+        if not isinstance(strings, dict):
+            fail("strings", "expected object")
+        self.strings_default = need_str("strings.default", strings.get("default"), "en")
+        self.strings: dict[str, dict[str, str]] = {}
+        for key, langs in (strings.get("texts") or {}).items():
+            if not isinstance(langs, dict) or not langs:
+                fail(f"strings.texts[{key!r}]", "expected object with at least one language")
+            self.strings[str(key)] = {str(l): str(t) for l, t in langs.items()}
+        self.tr_keys: set[str] = set()
         self.default_font = need_str("project.font", proj.get("font"), "")
         self.errors: list[str] = []
 
@@ -440,6 +462,11 @@ class Compiler:
         if not expr:
             return ""
 
+        # T"key" → localized default-language text (canvas preview); missing key → key
+        m = re.fullmatch(r'T"([^"]*)"', expr)
+        if m:
+            return self.strings.get(m.group(1), {}).get(self.strings_default, m.group(1))
+
         def fmt(v: Any) -> str:
             if v is True:
                 return "true"
@@ -479,16 +506,30 @@ class Compiler:
     def _build_label(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLLabelWidget", n, p, x, y, w, h)
         obj["localStyles"] = self.styles_for(n, p)
-        bind = self._bind(n, p, "label")
-        if bind:
-            obj["text"], obj["textType"] = bind[1], "expression"
-            preview = str(n.get("preview") or self._preview(bind[1]))
+        tr = n.get("tr")
+        if tr is not None:
+            # i18n label: text = T"key" expression (lvgl i18n via upstream #1045);
+            # the canvas renders previewValue → localized default-language text.
+            # i18n 标签：表达式 T"key"，画布渲染 previewValue=默认语言译文。
+            key = need_str(f"{p}.tr", tr)
+            if key not in self.strings:
+                self.err(f"{p}.tr", f"key {key!r} missing in strings.texts (preview falls back to the key)")
+            self.tr_keys.add(key)
+            obj["text"], obj["textType"] = f'T"{key}"', "expression"
+            preview = str(n.get("preview") or self.strings.get(key, {}).get(self.strings_default, key))
             obj["previewValue"] = preview
             text = preview
         else:
-            obj["text"] = need_str(f"{p}.text", n.get("text"), "Label")
-            obj["textType"] = "literal"
-            text = str(obj["text"])
+            bind = self._bind(n, p, "label")
+            if bind:
+                obj["text"], obj["textType"] = bind[1], "expression"
+                preview = str(n.get("preview") or self._preview(bind[1]))
+                obj["previewValue"] = preview
+                text = preview
+            else:
+                obj["text"] = need_str(f"{p}.text", n.get("text"), "Label")
+                obj["textType"] = "literal"
+                text = str(obj["text"])
         # Height guard: never smaller than font line-height × line count (16px font ≈ line-height 20; h=14 clips). 高度兜底：不小于字体行高×行数。
         font = str(n.get("font") or self.default_font or "x_16")
         line_h = int(font_size_of(font) * 1.25) + 1
@@ -1606,6 +1647,27 @@ def main(argv: list[str]) -> int:
         with open(h_path, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(lines))
         print(f"action.h → {h_path} ({len(compiler.native_actions)} native actions)")
+
+    # translations.yaml (lv_i18n format): compile with the lv_i18n CLI into C,
+    # firmware resolves T"key" at runtime via the translate hook (upstream #1045).
+    # translations.yaml（lv_i18n 格式）：lv_i18n CLI 编译成 C，固件运行时经翻译钩子解析 T"key"。
+    if compiler.tr_keys or compiler.strings:
+        import os
+        yaml_path = os.path.splitext(args.output)[0] + ".translations.yaml"
+        unused = set(compiler.strings) - compiler.tr_keys
+        if unused:
+            print(f"⚠ strings.texts keys never referenced by tr: {sorted(unused)}")
+        langs: dict[str, list[str]] = {}
+        for key in sorted(compiler.tr_keys | unused):
+            for lang, txt in compiler.strings.get(key, {}).items():
+                langs.setdefault(lang, []).append(f"{yaml_str(key)}: {yaml_str(txt)}")
+        with open(yaml_path, "w", encoding="utf-8", newline="\n") as f:
+            for lang in sorted(langs):
+                f.write(f"{lang}:\n")
+                for line in langs[lang]:
+                    f.write(f"  {line}\n")
+        print(f"translations.yaml → {yaml_path} "
+              f"({len(compiler.tr_keys | unused)} keys, {len(langs)} languages, default={compiler.strings_default})")
 
     n_widgets = sum(len(p["components"][0].get("children", []))
                     for p in project["userPages"] + project["userWidgets"])

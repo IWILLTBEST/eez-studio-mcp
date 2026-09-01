@@ -13,10 +13,25 @@ python ir2eez.py <input.ir.json> -o <output.eez-project>
 {
   "project":   { "name", "width": 1024, "height": 600, "font": "myfont_32" },
   "variables": [ { "name", "type", "default", "native": true } ],
+  "strings":   { "default": "en", "texts": { "key": { "en": "...", "zh": "..." } } },  // i18n，可选
   "widgets":   { "NavBar": { ...widget 定义，同普通 widget 节点... } },
   "screens":   [ { "name", "children": [...] } ],
-  "actions":   [ { "name", "steps": [...] } ]   # 无 steps = native 动作（固件在 action.h 实现回调）
+  "actions":   [ { "name", "steps": [...] } ]   // 无 steps = native 动作（固件在 action.h 实现回调）
 }
+```
+
+## i18n 字符串表（tr 标签）
+
+label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上游 eez-open/studio#1045），运行时经 EEZ Flow 的 `Flow.translate` 钩子解析——固件把钩子接到 `lv_i18n_get_text`，模拟器只显示 key 本身。
+
+- **设计时画布**渲染 previewValue = `strings.default` 语言的译文（我们的 previewValue 机制，不是上游 eval）；**切换预览语言 = 改 `strings.default` 重编译**，工程里的 key/字节码不变
+- 编译器同时落 `*.translations.yaml`（lv_i18n 源格式，`lv_i18n compile` 生成 C），包含全部 key × 全部语言；比从导出 C 里 `lv_i18n extract` 提取更直接
+- `tr` 引用了 `strings.texts` 里不存在的 key → 报错（preview 回退显示 key）；未引用的 key → 警告
+- 字体字形检查按**所有语言**的译文校验（demo 字体没中文 → 用 cn_24 这类含 CJK 的字体）
+- 示例见 examples/i18n（make_i18n.py）：en/zh 双语，改一行 default 切换画布语言
+
+```jsonc
+{ "type": "label", "tr": "title", "x": 24, "y": 20, "w": 360, "h": 34, "font": "cn_24" }
 ```
 
 ## widget 节点（树）
