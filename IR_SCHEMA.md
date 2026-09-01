@@ -74,14 +74,15 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
 
 ```jsonc
 { "type": "roller", "id": "mode", "bind": "mode_idx",
-  "options": ["Auto", "Manual", "Service"],   // 或 "\n" 分隔字符串
+  "options": ["Auto", "Manual", "Service"],   // 或 "
+" 分隔字符串
   "mode": "normal",                            // normal | infinite（无限循环滚动）
   "events": { "value_changed": "on_mode" } }   // 滚动选择触发
 ```
 
 宽度按最长选项自动兜底；`bind` 绑 selected（integer，双向：变量变→`rollerSetSelected`，滚动→写变量）。
 
-**Table / Chart 编译为裸 LVGL 对象**（EEZ 侧本来就没有结构属性——`lv_table_create`/`lv_chart_create` 即全部），IR 的结构参数做**校验 + 尺寸参考**，并导出为 `*.ui_ext.h` 命名常量给固件运行时配置用（不进 .eez-project）：
+**Table / Chart 编译为裸 LVGL 对象**（EEZ 侧本来就没有结构属性——`lv_table_create`/`lv_chart_create` 即全部），IR 的结构参数做**校验 + 尺寸参考**，并生成 **`ui_ext.h` / `ui_ext.c`**（可编译，依赖 build 产出的 `screens.h` 的 `objects.<id>` 句柄）：
 
 ```jsonc
 { "type": "chart", "id": "bus", "kind": "line",     // line | scatter
@@ -92,8 +93,7 @@ label 节点用 `"tr": "key"` 替代 `text`：编译成 `T"key"` 表达式（上
   "cols": 3, "rows": 5, "header": ["Time", "Code", "Message"] }
 ```
 
-产物 `ui_ext.h`：`CHART_BUS_POINTS/MIN/MAX/SERIES_0_NAME`、`TABLE_EVENTS_COLS/ROWS` + `TABLE_EVENTS_HEADER[]` 数组（固件 init 时循环 `lv_table_set_cell_value`）。画布上 chart/table 是空矩形（运行时才有内容）——视觉比对时这是预期。示例见 examples/richdata。
-
+固件接线（三行）：`ui_init()` 后调 `ui_ext_init()`——内部按常量配好 chart 类型/量程/点数/序列、table 行列并填表头；喂数据调 `chart_bus_push(series_idx, value)`（`lv_chart_set_next_value` 滚动模式）。画布上 chart/table 是空矩形（运行时才有内容）——视觉比对时这是预期。示例见 examples/richdata。
 
 ## variables
 
@@ -192,4 +192,4 @@ repeat 是重播（每次从 from 重新开始）；playback 才是往返。模�
 - flow 只有线性 steps，无分支/循环（if/loop 待加：IsTrue/Loop 组件 + 多引脚连线）
 - image 引用的位图需在 EEZ 里手动导入（bitmaps 段未实现）
 - user widget 实例暂不支持传参（EEZ 的 userPropertyValues 需要 flowSupport，工程已开启，IR 层面待加）
-- **裸机固件完整导出待补模板**：EEZ 固件引擎 `extern void create_screens()` 要求工程 build.files 模板含 `@LVGL_SCREENS_DEF@` 等段生成屏幕/部件 C 代码；我们的种子工程 `files: []`（极简），完整导出（generateSourceCodeForEezFramework）不产屏幕代码、裸机构建会缺符号。**模拟器/画布/检查/金标准路径完全不受影响**（wasm 运行时直接从 assets 创建部件，lv_chart/lv_table 都在内）。补齐种子模板 = 排队中的基建项
+- ~~裸机固件完整导出待补模板~~ **已闭环（2026-09-01）**：种子工程现带官方完整 14 文件构建模板（`lvgl-build-files.json`，抽自 eez-open/eez-project-templates "LVGL with EEZ Flow-9.0"）——build 后 `screens.c` 生成 `create_screens()`（含每个部件的创建调用与 `objects.<id>` 命名句柄）、`flow_def.c` 产 assets+native 变量表、i18n 的 `T"key"` 清单也落 screens.c。注意构建产物（screens/actions/vars/structs/flow_def/images/fonts/styles/ui.*）落在工程同目录，别提交进仓库
