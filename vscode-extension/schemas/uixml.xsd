@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- UIXML schema v0.1 — our own vocabulary (NOT the LVGL XML Specification).
+     Loaded by the Red Hat XML extension via xml.fileAssociations for
+     validation + autocomplete while editing .uixml files. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:attributeGroup name="geometry">
+    <xs:attribute name="id" type="xs:Name"/>
+    <xs:attribute name="x" type="xs:int"/>
+    <xs:attribute name="y" type="xs:int"/>
+    <xs:attribute name="w" type="xs:int"/>
+    <xs:attribute name="h" type="xs:int"/>
+    <xs:attribute name="hidden" type="xs:boolean"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="visual">
+    <xs:attribute name="font" type="xs:string"/>
+    <xs:attribute name="color" type="xs:string"/>
+    <xs:attribute name="bg" type="xs:string"/>
+    <xs:attribute name="bg-opa" type="xs:int"/>
+    <xs:attribute name="radius" type="xs:int"/>
+    <xs:attribute name="align" type="xs:string"/>
+    <xs:attribute name="layout" type="xs:string"/>
+    <xs:attribute name="gap" type="xs:int"/>
+    <xs:attribute name="justify" type="xs:string"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="events">
+    <xs:attribute name="on-clicked" type="xs:string"/>
+    <xs:attribute name="on-value-changed" type="xs:string"/>
+    <xs:attribute name="on-long-pressed" type="xs:string"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="bindable">
+    <xs:attribute name="bind" type="xs:string"/>
+  </xs:attributeGroup>
+
+  <!-- every widget accepts any of these common groups plus its own attrs;
+       extra attributes stay lax so new compiler fields don't break the XSD -->
+  <xs:group name="widgetContent">
+    <xs:choice>
+      <xs:element name="series" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required"/>
+          <xs:attribute name="color" type="xs:string"/>
+          <xs:attribute name="width" type="xs:int"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="section" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="from" type="xs:int" use="required"/>
+          <xs:attribute name="to" type="xs:int" use="required"/>
+          <xs:attribute name="color" type="xs:string"/>
+          <xs:attribute name="width" type="xs:int"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="tab" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="widgetContent" minOccurs="0" maxOccurs="unbounded"/>
+          </xs:sequence>
+          <xs:attribute name="title" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="state" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" type="xs:string" use="required"/>
+          <xs:anyAttribute processContents="lax"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="options" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="o" minOccurs="1" maxOccurs="unbounded" type="xs:string"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="label" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="button" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="panel" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="container" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="image" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="dropdown" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="bar" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="slider" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="textarea" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="checkbox" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="switch" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="arc" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="spinner" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="led" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="line" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="canvas" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="roller" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="table" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="chart" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="scale" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="calendar" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="keyboard" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="spinbox" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="tabview" type="widgetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="instance" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="widget" type="xs:Name" use="required"/>
+          <xs:attributeGroup ref="geometry"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:group>
+
+  <xs:complexType name="widgetType">
+    <xs:sequence>
+      <xs:group ref="widgetContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="geometry"/>
+    <xs:attributeGroup ref="visual"/>
+    <xs:attributeGroup ref="events"/>
+    <xs:attributeGroup ref="bindable"/>
+    <xs:anyAttribute processContents="lax"/>
+  </xs:complexType>
+
+  <xs:element name="ui">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="project">
+          <xs:complexType>
+            <xs:attribute name="name" type="xs:string"/>
+            <xs:attribute name="width" type="xs:int"/>
+            <xs:attribute name="height" type="xs:int"/>
+            <xs:attribute name="font" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="var">
+          <xs:complexType>
+            <xs:attribute name="name" type="xs:Name" use="required"/>
+            <xs:attribute name="type" use="required">
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="integer"/>
+                  <xs:enumeration value="float"/>
+                  <xs:enumeration value="double"/>
+                  <xs:enumeration value="boolean"/>
+                  <xs:enumeration value="string"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="default" type="xs:string"/>
+            <xs:attribute name="native" type="xs:boolean"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="strings">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="text" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="l" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:simpleContent>
+                          <xs:extension base="xs:string">
+                            <xs:attribute name="lang" type="xs:string" use="required"/>
+                          </xs:extension>
+                        </xs:simpleContent>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="key" type="xs:string" use="required"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="default" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="widget">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:group ref="widgetContent" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:Name" use="required"/>
+            <xs:attribute name="width" type="xs:int"/>
+            <xs:attribute name="height" type="xs:int"/>
+            <xs:attributeGroup ref="visual"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="screen">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:group ref="widgetContent" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:Name" use="required"/>
+            <xs:attributeGroup ref="visual"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="action">
+          <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:element name="change-screen">
+                <xs:complexType>
+                  <xs:attribute name="screen" type="xs:Name" use="required"/>
+                  <xs:attribute name="fade" type="xs:string"/>
+                  <xs:attribute name="speed" type="xs:int"/>
+                  <xs:attribute name="delay" type="xs:int"/>
+                  <xs:attribute name="use-stack" type="xs:boolean"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="anim">
+                <xs:complexType>
+                  <xs:attribute name="target" type="xs:string" use="required"/>
+                  <xs:attribute name="prop" use="required">
+                    <xs:simpleType>
+                      <xs:restriction base="xs:string">
+                        <xs:enumeration value="x"/>
+                        <xs:enumeration value="y"/>
+                        <xs:enumeration value="w"/>
+                        <xs:enumeration value="width"/>
+                        <xs:enumeration value="h"/>
+                        <xs:enumeration value="height"/>
+                        <xs:enumeration value="opacity"/>
+                        <xs:enumeration value="img_zoom"/>
+                        <xs:enumeration value="img_angle"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                  </xs:attribute>
+                  <xs:attribute name="from" type="xs:int"/>
+                  <xs:attribute name="to" type="xs:int"/>
+                  <xs:attribute name="time" type="xs:int"/>
+                  <xs:attribute name="ease">
+                    <xs:simpleType>
+                      <xs:restriction base="xs:string">
+                        <xs:enumeration value="linear"/>
+                        <xs:enumeration value="ease_in"/>
+                        <xs:enumeration value="ease_out"/>
+                        <xs:enumeration value="ease_in_out"/>
+                        <xs:enumeration value="overshoot"/>
+                        <xs:enumeration value="bounce"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                  </xs:attribute>
+                  <xs:attribute name="delay" type="xs:int"/>
+                  <xs:attribute name="repeat" type="xs:int"/>
+                  <xs:attribute name="playback" type="xs:boolean"/>
+                  <xs:attribute name="instant" type="xs:boolean"/>
+                  <xs:attribute name="relative" type="xs:boolean"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="set">
+                <xs:complexType>
+                  <xs:attribute name="variable" type="xs:Name" use="required"/>
+                  <xs:attribute name="value" type="xs:string" use="required"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="delay">
+                <xs:complexType>
+                  <xs:attribute name="ms" type="xs:int" use="required"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="call">
+                <xs:complexType>
+                  <xs:attribute name="action" type="xs:Name" use="required"/>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="lvgl">
+                <xs:complexType>
+                  <xs:attribute name="action" type="xs:string" use="required"/>
+                  <xs:anyAttribute processContents="lax"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:choice>
+            <xs:attribute name="name" type="xs:Name" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

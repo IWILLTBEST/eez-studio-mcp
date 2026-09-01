@@ -1,0 +1,56 @@
+{
+  "name": "uixml",
+  "displayName": "UIXML for EEZ Studio / LVGL",
+  "description": "Language support + live preview + compile commands for UIXML — the XML source format that compiles into EEZ Studio LVGL projects (own vocabulary, not the LVGL XML Specification).",
+  "version": "0.1.0",
+  "publisher": "IWILLTBEST",
+  "license": "GPL-3.0",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages", "Snippets", "Other"],
+  "activationEvents": ["onLanguage:uixml", "onCommand:uixml.preview"],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "uixml",
+        "aliases": ["UIXML", "uixml"],
+        "extensions": [".uixml"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "uixml",
+        "scopeName": "source.uixml",
+        "path": "./syntaxes/uixml.tmLanguage.json"
+      }
+    ],
+    "jsonValidation": [],
+    "xmlValidation": [],
+    "configuration": {
+      "title": "UIXML",
+      "properties": {
+        "uixml.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python interpreter used to run ir2eez.py"
+        },
+        "uixml.repoRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the eez-studio-mcp repo (ir2eez.py / uixml.py). Empty = same directory as the extension."
+        },
+        "uixml.bridgeUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:17620",
+          "description": "EEZ Studio bridge base URL (open EEZ Studio with the bridge running)"
+        }
+      }
+    },
+    "commands": [
+      { "command": "uixml.preview", "title": "UIXML: Preview", "category": "UIXML" },
+      { "command": "uixml.compile", "title": "UIXML: Compile", "category": "UIXML" },
+      { "command": "uixml.check", "title": "UIXML: Check (EEZ Studio)", "category": "UIXML" }
+    ]
+  }
+}

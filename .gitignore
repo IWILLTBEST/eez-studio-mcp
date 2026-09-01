@@ -8,3 +8,4 @@ node_modules/
 *.eez-extension
 golden/*.last.png
 golden/*.diff.png
+*.vsix
