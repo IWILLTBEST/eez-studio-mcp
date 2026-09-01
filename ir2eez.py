@@ -935,6 +935,13 @@ class Compiler:
     def _build_calendar(self, n: dict, p: str, x: int, y: int, w: int, h: int) -> dict:
         obj = self.base("LVGLCalendarWidget", n, p, x, y, w, h)
         obj["clickableFlag"] = True
+        # Scroll flags OFF: a fixed-size calendar must not scroll — EEZ's
+        # default SCROLLABLE makes the canvas render the header at a slightly
+        # different scroll offset on every reload (golden-test flakiness) and
+        # lets users fling the month view around in the simulator.
+        # 固定尺寸日历禁滚动：默认 SCROLLABLE 会让画布每次重载渲染出
+        # 微小滚动偏移（金标准抖动的根源），模拟器里还会被拖着滚。
+        obj["widgetFlags"] = "CLICKABLE|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK"
         today = str(n.get("today", "2026-01-01"))
         try:
             yy, mm, dd = (int(v) for v in today.split("-"))
