@@ -495,13 +495,8 @@ function activate(context) {
     const preview = new PreviewProvider();
     status.command = "uixml.preview";
     status.text = STATUS_LABEL;
-    status.tooltip = "Open the UIXML preview (Sketch / Pixel) for the active file";
-    const syncVisibility = () => {
-        const ed = vscode.window.activeTextEditor;
-        status.visible = !!ed && ed.document.fileName.toLowerCase().endsWith(".uixml");
-    };
-    syncVisibility();
-    const onEditor = vscode.window.onDidChangeActiveTextEditor(syncVisibility);
+    status.tooltip = "Open the UIXML preview (Sketch / Pixel); Command Palette has UIXML: Run for the WASM simulator";
+    status.visible = true;
 
     const activeUixml = () => {
         const ed = vscode.window.activeTextEditor;
@@ -598,8 +593,8 @@ function activate(context) {
               localResourceRoots: [vscode.Uri.file(simDir)] });
         let html = fs.readFileSync(htmlPath, "utf-8");
         const wv = panel.webview;
-        html = html.replace(/src="index\.js"/g,
-            `src="\${wv.asWebviewUri(vscode.Uri.file(require("path").join(simDir, "index.js")))}"`);
+        const jsUri = wv.asWebviewUri(vscode.Uri.file(path.join(simDir, "index.js")));
+        html = html.replace(/src="index\.js"/g, `src="${jsUri}"`);
         wv.html = html;
         setDone("simulator running");
     });
@@ -611,7 +606,7 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, runCmd, onChange, onSave, onEditor, status);
+    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, runCmd, onChange, onSave, status);
 }
 
 function deactivate() {}
