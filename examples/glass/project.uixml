@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- glass demo, split form: logic (vars+actions) / screens stitched here. -->
+<ui>
+  <include src="logic.uixml"/>
+  <include src="screens/main.uixml"/>
+</ui>

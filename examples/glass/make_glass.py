@@ -188,6 +188,23 @@ ir = {
     ],
 }
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glass.uixml")
-uixml.ir_to_xml(ir, out)
-print("written:", out)
+d = os.path.dirname(os.path.abspath(__file__))
+# Qt-style split (no tr strings -> no strings plane): logic = project + vars +
+# actions (firmware contract), screens = layout. Manifest stitches them.
+os.makedirs(os.path.join(d, "screens"), exist_ok=True)
+uixml.ir_to_xml(
+    {"project": ir["project"], "variables": ir["variables"], "actions": ir["actions"]},
+    os.path.join(d, "logic.uixml"))
+uixml.ir_to_xml({"screens": ir["screens"]},
+                os.path.join(d, "screens", "main.uixml"))
+MANIFEST = "\n".join([
+    '<?xml version="1.0" encoding="utf-8"?>',
+    "<!-- glass demo, split form: logic (vars+actions) / screens stitched here. -->",
+    "<ui>",
+    '  <include src="logic.uixml"/>',
+    '  <include src="screens/main.uixml"/>',
+    "</ui>",
+    "",
+])
+open(os.path.join(d, "project.uixml"), "w", encoding="utf-8", newline="\n").write(MANIFEST)
+print("written: project.uixml + logic.uixml + screens/main.uixml")

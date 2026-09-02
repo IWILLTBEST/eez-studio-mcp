@@ -1,14 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
 <ui xmlns:lv="urn:eez:lv">
-  <project name="glass" width="1024" height="600" font="demo_16" />
-  <var name="speed" type="integer" default="1350" />
-  <var name="temp" type="integer" default="52" />
-  <var name="volt" type="integer" default="380" />
-  <var name="curr" type="double" default="8.4" />
-  <var name="power" type="integer" default="72" />
-  <var name="heartbeat" type="integer" default="255" />
-  <var name="warning" type="integer" default="0" />
-  <var name="fault" type="integer" default="0" />
   <screen name="main">
     <panel id="bg" x="0" y="0" w="1024" h="600" bg="#0E1524" radius="0" lv:bg-grad-color="#05080F" lv:bg-grad-dir="VER" lv:bg-main-stop="60" lv:bg-grad-stop="255">
       <label id="title" x="28" y="22" w="420" h="30" text="Glass Dashboard" font="demo_20" />
@@ -63,15 +54,4 @@
       </panel>
     </panel>
   </screen>
-  <action name="entrance">
-    <anim target="bg" prop="opacity" from="90" to="255" time="300" ease="ease_out" instant="true" />
-    <anim target="card_speed" prop="y" from="120" to="84" time="420" ease="ease_out" delay="60" instant="true" />
-    <anim target="card_temp" prop="y" from="120" to="84" time="420" ease="ease_out" delay="130" instant="true" />
-    <anim target="card_volt" prop="y" from="120" to="84" time="420" ease="ease_out" delay="200" instant="true" />
-    <anim target="card_curr" prop="y" from="120" to="84" time="420" ease="ease_out" delay="270" instant="true" />
-    <anim target="panel_gauge" prop="y" from="284" to="248" time="420" ease="ease_out" delay="340" instant="true" />
-    <anim target="panel_status" prop="y" from="284" to="248" time="420" ease="ease_out" delay="410" instant="true" />
-    <anim target="panel_action" prop="y" from="464" to="428" time="420" ease="ease_out" delay="480" instant="true" />
-    <anim target="led_heart" prop="opacity" from="255" to="70" time="900" ease="ease_in_out" repeat="-1" playback="true" instant="true" />
-  </action>
 </ui>

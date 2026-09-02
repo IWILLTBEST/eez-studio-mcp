@@ -25,7 +25,7 @@ import eez2ir                     # noqa: E402
 from ir2eez import Compiler       # noqa: E402
 
 SRC_TARGETS = [
-    ("glass", "examples/glass/glass.uixml"),
+    ("glass", "examples/glass/project.uixml"),
     ("i18n", "examples/i18n/project.uixml"),
     ("motor", "examples/motor/motor.uixml"),
     ("richdata", "examples/richdata/richdata.uixml"),
