@@ -567,6 +567,43 @@ function activate(context) {
         }
     });
 
+    const runCmd = vscode.commands.registerCommand("uixml.run", async () => {
+        const f = activeUixml();
+        if (!f) return vscode.window.showWarningMessage("Open a .uixml file first");
+        const simDir = path.join(path.dirname(f), "sim");
+        const htmlPath = require("path").join(simDir, "index.html");
+        const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
+        const buildSim = () => new Promise((resolve) => {
+            setBusy("building simulator…");
+            execFile(
+                py,
+                [path.join(findRepoRoot(f), "tools", "build_sim.py"), f],
+                { timeout: 600000, cwd: path.dirname(f) },
+                (err, stdout, stderr) => {
+                    out().appendLine(String(stdout || ""));
+                    if (err) {
+                        out().appendLine(String(stderr || err.message));
+                        out().show();
+                        setDone("simulator build failed", false);
+                        resolve(false);
+                    } else resolve(true);
+                }
+            );
+        });
+        const fsOk = await new Promise((r) => fs.access(htmlPath, (e) => r(!e)));
+        if (!fsOk && !(await buildSim())) return;
+        const panel = vscode.window.createWebviewPanel(
+            "uixmlSim", `Run · ${path.basename(f)}`, vscode.ViewColumn.Beside,
+            { enableScripts: true, retainContextWhenHidden: true,
+              localResourceRoots: [vscode.Uri.file(simDir)] });
+        let html = fs.readFileSync(htmlPath, "utf-8");
+        const wv = panel.webview;
+        html = html.replace(/src="index\.js"/g,
+            `src="\${wv.asWebviewUri(vscode.Uri.file(require("path").join(simDir, "index.js")))}"`);
+        wv.html = html;
+        setDone("simulator running");
+    });
+
     const onChange = vscode.workspace.onDidChangeTextDocument((e) => preview.onDocChanged(e.document));
     const onSave = vscode.workspace.onDidSaveTextDocument((doc) => {
         if (doc.fileName.toLowerCase().endsWith(".uixml") && preview.currentFile === doc.fileName) {
@@ -574,7 +611,7 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, onChange, onSave, onEditor, status);
+    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, runCmd, onChange, onSave, onEditor, status);
 }
 
 function deactivate() {}
