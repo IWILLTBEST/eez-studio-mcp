@@ -499,13 +499,26 @@ function activate(context) {
     status.visible = true;
 
     const activeUixml = () => {
-        const ed = vscode.window.activeTextEditor;
-        return ed && ed.document.fileName.toLowerCase().endsWith(".uixml") ? ed.document.fileName : null;
+        // active editor first, then any visible one — focus may sit in the
+        // explorer/webview when the command is invoked
+        const eds = [vscode.window.activeTextEditor, ...vscode.window.visibleTextEditors];
+        for (const ed of eds) {
+            if (ed && ed.document.fileName.toLowerCase().endsWith(".uixml")) {
+                return ed.document.fileName;
+            }
+        }
+        return null;
+    };
+    const pickUixml = async () => {
+        const picked = await vscode.window.showOpenDialog({
+            title: "UIXML: pick a .uixml file", filters: { UIXML: ["uixml"] } });
+        return picked ? picked[0].fsPath : null;
     };
 
     const compileCmd = vscode.commands.registerCommand("uixml.compile", async () => {
-        const f = activeUixml();
-        if (!f) return vscode.window.showWarningMessage("Open a .uixml file first");
+        let f = activeUixml();
+        if (!f) f = await pickUixml();
+        if (!f) return;
         try {
             setBusy("compiling…");
             const r = await runCompiler(f);
@@ -532,8 +545,9 @@ function activate(context) {
     });
 
     const previewCmd = vscode.commands.registerCommand("uixml.preview", async () => {
-        const f = activeUixml();
-        if (!f) return vscode.window.showWarningMessage("Open a .uixml file first");
+        let f = activeUixml();
+        if (!f) f = await pickUixml();
+        if (!f) return;
         preview.show(f);
     });
 
@@ -563,8 +577,9 @@ function activate(context) {
     });
 
     const runCmd = vscode.commands.registerCommand("uixml.run", async () => {
-        const f = activeUixml();
-        if (!f) return vscode.window.showWarningMessage("Open a .uixml file first");
+        let f = activeUixml();
+        if (!f) f = await pickUixml();
+        if (!f) return;
         const simDir = path.join(path.dirname(f), "sim");
         const htmlPath = require("path").join(simDir, "index.html");
         const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
