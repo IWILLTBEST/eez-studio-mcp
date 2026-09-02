@@ -305,13 +305,13 @@ class Compiler:
         # both fails the build (a private-chain font leaking into a public
         # example used to ship silently and Studio flagged it as check errors).
         # 字体白名单：目录字体 + montserrat 内建；越界即报错。
+        self.errors: list[str] = []
         self.known_fonts = {f.get("name", "") for f in load_font_catalog()}
         if self.default_font and (self.default_font not in self.known_fonts
                                   and not self.default_font.upper().startswith("MONTSERRAT")):
             self.err("project.font",
                      f"project font {self.default_font!r} not in the font catalog "
                      f"(available: {sorted(self.known_fonts)}) nor a montserrat built-in")
-        self.errors: list[str] = []
 
     def err(self, path: str, msg: str) -> None:
         self.errors.append(f"{path}: {msg}")
@@ -2058,6 +2058,7 @@ def main(argv: list[str]) -> int:
             print(f"  - {pb}", file=sys.stderr)
         return 1
 
+    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 

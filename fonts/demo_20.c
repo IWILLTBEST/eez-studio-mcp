@@ -1,8 +1,8 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 8
- * Opts: --font E:\eez_studio_project\html2eez\fonts\rel_demo20.ttf --size 20 --bpp 8 --no-compress --no-prefilter --range 32-127 --symbols 
- MotrDive-20运行CANRS485输出:.Hz613总览⚙️参数⚠报警转速pdP扭矩Tqu·m功率wkW效Efcny9%电机温度°母线压V流控制目标加s正中节能关闭/额定7极模式F矢量伺服载波频保护过阈值失缺相检测通信a特K点bU心跳间隔严重告常时描述操作()确认偏高延迟未连接{"j,hg_}l[]B#x\OQIY --font E:\eez_studio_project\html2eez\font\fontawesome-free-6.7.2-web\webfonts\fa-solid-900.ttf --range 0xF002,0xF00C,0xF013,0xF015,0xF017,0xF019,0xF01E,0xF023,0xF029,0xF03A,0xF048,0xF04B,0xF04C,0xF04D,0xF051,0xF053,0xF054,0xF058,0xF05E,0xF061,0xF068,0xF06E,0xF071,0xF074,0xF077,0xF078,0xF07C,0xF0B0,0xF0C5,0xF0C8,0xF0EC,0xF0EE,0xF0E7,0xF1DA,0xF1DE,0xF1E6,0xF1EB,0xF241,0xF26C,0xF2DB,0xF2F1,0xF519,0xF542,0xF5DC,0xF625,0xF6FC,0xF6FF,0xF773,0xF7C2,0xF83E --font E:\eez_studio_project\html2eez\font\fontawesome-free-6.7.2-web\webfonts\fa-brands-400.ttf --range 0xF293-0xF294 --format lvgl -o E:\eez_studio_project\html2eez\fonts\rel_demo20.c
+ * Opts: --font fonts/demo_20.ttf --range 32-127 --symbols 
+ MotrDive-20运行CANRS485输出:.Hz613总览⚙️参数⚠报警转速pdP扭矩Tqu·m功率wkW效Efcny9%电机温度°母线压V流控制目标加s正中节能关闭/额定7极模式F矢量伺服载波频保护过阈值失缺相检测通信a特K点bU心跳间隔严重告常时描述操作()确认偏高延迟未连接{"j,hg_}l[]B#x\OQIY --size 20 --bpp 8 --no-compress --no-prefilter --font fonts/demo_20_icons_0_fa-solid-900.ttf --range 0xF002,0xF00C,0xF013,0xF015,0xF017,0xF019,0xF01E,0xF023,0xF029,0xF03A,0xF048,0xF04B,0xF04C,0xF04D,0xF051,0xF053,0xF054,0xF058,0xF05E,0xF061,0xF068,0xF06E,0xF071,0xF074,0xF077,0xF078,0xF07C,0xF0B0,0xF0C5,0xF0C8,0xF0EC,0xF0EE,0xF0E7,0xF1DA,0xF1DE,0xF1E6,0xF1EB,0xF241,0xF26C,0xF2DB,0xF2F1,0xF519,0xF542,0xF5DC,0xF625,0xF6FC,0xF6FF,0xF773,0xF7C2,0xF83E --font fonts/demo_20_icons_1_fa-brands-400.ttf --range 0xF293-0xF294 --format lvgl -o fonts/demo_20.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -11,11 +11,11 @@
 #include "lvgl/lvgl.h"
 #endif
 
-#ifndef REL_DEMO20
-#define REL_DEMO20 1
+#ifndef DEMO_20
+#define DEMO_20 1
 #endif
 
-#if REL_DEMO20
+#if DEMO_20
 
 /*-----------------
  *    BITMAPS
@@ -8890,9 +8890,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t rel_demo20 = {
+const lv_font_t demo_20 = {
 #else
-lv_font_t rel_demo20 = {
+lv_font_t demo_20 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -8914,5 +8914,5 @@ lv_font_t rel_demo20 = {
 
 
 
-#endif /*#if REL_DEMO20*/
+#endif /*#if DEMO_20*/
 

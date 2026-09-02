@@ -18,7 +18,7 @@ import uixml
 W, H = 480, 320
 
 ir = {
-    "project": {"name": "i18n-demo", "width": W, "height": H, "font": "cn_24"},
+    "project": {"name": "i18n-demo", "width": W, "height": H, "font": "demo_20"},
     "strings": {
         "default": "en",
         "texts": {
@@ -40,7 +40,7 @@ ir = {
             "bg": "#101828", "radius": 0,
             "children": [
                 {"type": "label", "id": "title", "tr": "title",
-                 "x": 24, "y": 20, "w": 360, "h": 34, "font": "cn_24",
+                 "x": 24, "y": 20, "w": 360, "h": 34, "font": "demo_20",
                  "color": "#E8EFFA"},
                 {"type": "label", "id": "row_speed", "tr": "speed",
                  "x": 24, "y": 84, "w": 150, "h": 26, "color": "#8FA0BC"},
@@ -55,13 +55,13 @@ ir = {
                  "bg": "#1E7F5C", "color": "#FFFFFF"},
                 {"type": "label", "id": "btn_start_lbl", "tr": "start",
                  "x": 24, "y": 233, "w": 90, "h": 24, "color": "#FFFFFF",
-                 "align": "center", "font": "cn_24"},
+                 "align": "center", "font": "demo_20"},
                 {"type": "button", "id": "btn_stop", "text": "",
                  "x": 130, "y": 220, "w": 90, "h": 48, "radius": 10,
                  "bg": "#7A2E3A", "color": "#FFFFFF"},
                 {"type": "label", "id": "btn_stop_lbl", "tr": "stop",
                  "x": 130, "y": 233, "w": 90, "h": 24, "color": "#FFFFFF",
-                 "align": "center", "font": "cn_24"},
+                 "align": "center", "font": "demo_20"},
             ],
         }],
     }],
