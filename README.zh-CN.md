@@ -22,7 +22,7 @@ MCP（Model Context Protocol）服务器 + AI 技能 + IR 编译器：让 Claude
 
 <p><img src="docs/img/glass-dashboard.png" width="480" alt="玻璃拟态仪表盘"></p>
 
-**i18n，一份 IR 两种语言**（[examples/i18n](examples/i18n)——label 编译成 `T"key"` 表达式，固件上经 lv_i18n 解析；画布经 previewValue 预览默认语言，改 `strings.default` 重编译即切换）：
+**i18n，一份 IR 两种语言**（[examples/i18n](examples/i18n)——label 编译成 `T"key"` 表达式，固件上经 lv_i18n 解析；画布经 previewValue 预览默认语言，改 `strings.default` 重编译即切换。下面两张都是公开字体链的新截屏——CJK 字形来自并入 demo 字体的 Noto Sans SC（OFL）子集）：
 
 | 英文（`"default": "en"`） | 中文（`"default": "zh"`） |
 |:---:|:---:|
@@ -94,6 +94,46 @@ pip install mcp httpx
 python ir2eez.py examples/motor/motor.uixml -o motor-demo.eez-project
 # → motor-demo.eez-project + action.h（12 个 native 动作）
 ```
+
+## UIXML：分离形态与反向导入
+
+工程可以**单文件**，也可以 **Qt 式分离**——按"谁改这个文件"切平面，清单用 `<include>` 缝合：
+
+```text
+examples/motor/
+├── motor.uixml              # 清单（按示例名命名——编辑器页签跨示例可区分）
+├── logic.uixml              # 工程头 + <var> + <action>（固件工程师的接口）
+├── widgets/StatusBar.uixml  # 跨屏复用的用户部件，逐件一文件
+└── screens/{overview,params,alarms}.uixml   # UI 平面，一屏一文件
+```
+
+`tools/split_uixml.py <src.uixml>` 一键把单文件拆成分离形态并**自检**（清单重解析必须与原 IR 逐字段一致；先写临时名、过了自检才原子替换，失败绝不碰源文件）。有 `tr` 的工程多一个 `strings.uixml` 文案平面——翻译者只碰这一个文件。
+
+**反向导入通道**闭环：在 EEZ Studio 里的手改经 `UIXML: Import from .eez-project`（`ir2eez.py <工程>.eez-project -o <输出>.uixml`）回流成 XML。导入器是编译器的忠实镜像——反编译 → 重编译 → canonical 比对，遇到往返子集之外的内容**精确报错拒绝**，绝不静默丢字段。富数据部件的结构（表格列行、chart 序列、roller 选项——本来就不进 `.eez-project`）由 `ir_meta.json` 伴生文件带回。导入分离形态的构建产物会写成 `<名>-imported.uixml`（完整单文件），清单永不被覆写。
+
+## VS Code 插件
+
+[`vscode-extension/`](vscode-extension/) 把整条流水线搬进编辑器——语法高亮、XSD 校验和**两个状态栏按钮**：
+
+| | |
+|---|---|
+| 👁 **UIXML Preview** | webview 双模式预览：**Sketch**（即时 SVG 草绘，include 已内联、`tr`/`bind` 显示真值、250ms 防抖）与 **Pixel**（经桥取 EEZ 画布真截图——金标准级真值） |
+| ▶ **UIXML Run** | 构建并打开 **WASM 模拟器**；构建进度实时显示在按钮和 UIXML 输出面板上（逐步：编译 → Studio 导出 → 对象 → 链接），源码没变时秒开 |
+
+命令：`UIXML: Compile` · `UIXML: Check` · `UIXML: Preview` · `UIXML: Run` · `UIXML: Import from .eez-project`。编辑器支持：覆盖全部词汇表的 TextMate 语法（含 `<?xml?>` 声明行着色）+ XSD 属性补全校验（配 Red Hat XML 扩展）。
+
+源码安装：
+
+```bash
+cd vscode-extension && npx @vscode/vsce package --no-dependencies
+code --install-extension uixml-preview-*.vsix
+```
+
+Sketch 离线可用；Pixel 与 Run 需要桥（见[安装](#安装)）。零配置：插件从 `.uixml` 文件逐级向上自动定位仓库根。
+
+## WASM 模拟器
+
+`tools/build_sim.py <工程.uixml>` 一键跑完整链——**uixml → ir2eez → Studio 导 C（桥）→ emcc → `build/sim/index.html`**——产物是**真固件 C**（LVGL 9 + eez-framework 合并件）在浏览器里执行：可交互、flow 生效、`T"key"` 标签经生成的键表在运行时翻译。对象文件跨工程共享缓存（`.sim-cache/`，按 `lv_conf.h` 哈希），缓存热了之后新工程首建约 6 秒。除桥之外还需要 `third_party/` 下的 LVGL 源码与 emsdk（不入库；壳与配置见 `tools/sim/`）。
 
 ## 视觉回归与无头 CI
 

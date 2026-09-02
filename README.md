@@ -22,7 +22,7 @@ And a **glassmorphism + entrance-animation showcase** ([examples/glass](examples
 
 <p><img src="docs/img/glass-dashboard.png" width="480" alt="glass dashboard"></p>
 
-**i18n, one IR two languages** ([examples/i18n](examples/i18n) — labels compile to `T"key"` expressions resolved by lv_i18n on target; the canvas previews the default language via previewValue, so switching `strings.default` and recompiling re-renders the same keys in the other language):
+**i18n, one IR two languages** ([examples/i18n](examples/i18n) — labels compile to `T"key"` expressions resolved by lv_i18n on target; the canvas previews the default language via previewValue, so switching `strings.default` and recompiling re-renders the same keys in the other language — both images below are fresh captures of the *public* font chain, CJK glyphs come from a Noto Sans SC (OFL) subset merged into the demo fonts):
 
 | English (`"default": "en"`) | 中文 (`"default": "zh"`) |
 |:---:|:---:|
@@ -94,6 +94,46 @@ pip install mcp httpx
 python ir2eez.py examples/motor-en/motor-en.uixml -o motor-demo.eez-project
 # → motor-demo.eez-project + action.h (12 native actions); 中文版: examples/motor/motor.uixml
 ```
+
+## UIXML: split form & the reverse channel
+
+A project can live as **one file** or in the **Qt-style split** — planes separated by who edits them, stitched by a manifest with `<include>`:
+
+```text
+examples/motor/
+├── motor.uixml              # manifest (named after the example — editor tabs stay distinguishable)
+├── logic.uixml              # project header + <var> + <action>  (the firmware engineer's interface)
+├── widgets/StatusBar.uixml  # reusable user widgets, one file each
+└── screens/{overview,params,alarms}.uixml   # the UI plane, one screen per file
+```
+
+`tools/split_uixml.py <src.uixml>` converts a single file to the split form and **self-checks** (the manifest must re-parse to the identical IR; it swaps atomically so a failed check never touches your source). `strings.uixml` appears as a fourth plane when the project has `tr` keys — translators touch only that file.
+
+The **reverse channel** closes the loop: hand edits made in EEZ Studio flow back to XML via `UIXML: Import from .eez-project` (`ir2eez.py <proj>.eez-project -o <out>.uixml`). The importer is a faithful mirror of the compiler — decompile → recompile → canonical compare; anything outside the round-trippable subset makes it **refuse with a precise error** rather than silently drop fields. Rich-widget structure (table columns, chart series, roller options — things that never enter the `.eez-project`) rides the `ir_meta.json` side-car. Importing a split-form build writes `<name>-imported.uixml` (a complete single file) so the manifest is never clobbered.
+
+## The VS Code extension
+
+[`vscode-extension/`](vscode-extension/) turns the pipeline into an editor experience — syntax highlighting, XSD validation and **two status-bar buttons**:
+
+| | |
+|---|---|
+| 👁 **UIXML Preview** | webview with two modes: **Sketch** (instant SVG wireframe, includes inlined, `tr`/`bind` resolved to real values, 250 ms debounce) and **Pixel** (the actual EEZ canvas screenshot via the bridge — golden-grade truth) |
+| ▶ **UIXML Run** | builds & opens the **WASM simulator**; live build progress on the button *and* in the UIXML output panel (each step: compile → Studio export → objects → link), instant open when nothing changed |
+
+Commands: `UIXML: Compile` · `UIXML: Check` · `UIXML: Preview` · `UIXML: Run` · `UIXML: Import from .eez-project`. Editor support: TextMate grammar for the whole vocabulary (including `<?xml?>` PI coloring) plus an XSD for attribute completion/validation (works with the Red Hat XML extension).
+
+Install from source:
+
+```bash
+cd vscode-extension && npx @vscode/vsce package --no-dependencies
+code --install-extension uixml-preview-*.vsix
+```
+
+Sketch works offline; Pixel and Run need the bridge (any Studio instance from [Setup](#setup)). Zero config: the extension locates the repo root by walking up from the `.uixml` file.
+
+## The wasm simulator
+
+`tools/build_sim.py <project.uixml>` runs the whole chain — **uixml → ir2eez → Studio C export (bridge) → emcc → `build/sim/index.html`** — and the result is *the real firmware C* (LVGL 9 + the eez-framework amalgamation) executing in the browser: interactive, flows included, `T"key"` labels translated at runtime through a generated key table. Object files are cached and shared across projects (`.sim-cache/`, keyed by `lv_conf.h`), so a fresh project's first build takes ~6 s after the cache is warm. Requirements on top of the bridge: LVGL sources and an emsdk under `third_party/` (not committed — see `tools/sim/` for the shell and config).
 
 ## Visual regression & headless CI
 
@@ -172,7 +212,7 @@ Two language variants of the same UI: `examples/motor` (Chinese) and `examples/m
 - The bridge is localhost-only by design.
 - Corporate proxies/VPNs: both servers keep their loopback calls off the system proxy (Python pins `trust_env=False`; the Node server scrubs `HTTP_PROXY`-style env vars at startup) — a system proxy can otherwise add ~1.7 s per call and stall progress notifications.
 - Requires the patched Studio plus either Node.js 18+ (for `mcp-server.mjs`, recommended) or Python 3.10+ with `mcp`/`httpx` (for `eez_mcp_server.py`). The two MCP implementations are behaviorally aligned (47 tools, RFC 6902/7396 patching, live resources, progress heartbeats) and tested on Windows.
-- Fonts in `fonts/` are redistributable subsets (see `fonts/*.meta.json` for sources) — regenerable via `font_tool.py`. The `demo_*` fonts used by the examples are free substitutes so this repo stays redistributable; goldens are captured against them.
+- Fonts in `fonts/` are redistributable subsets (see `fonts/*.meta.json` for sources) — regenerable via `font_tool.py`. The `demo_*` fonts used by the examples are free substitutes so this repo stays redistributable; goldens are captured against them. CJK glyphs in the demo fonts are a subset of **Noto Sans SC (SIL OFL 1.1)**; icon glyphs come from **Font Awesome Free** (OFL/CC BY 4.0) — see `font/fontawesome/LICENSE-fontawesome.txt`.
 
 ## License
 

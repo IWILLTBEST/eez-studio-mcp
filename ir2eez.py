@@ -2062,6 +2062,29 @@ def main(argv: list[str]) -> int:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
 
+    # Font sources next to the project: Studio resolves each font's relative
+    # `fonts/...` paths against the PROJECT's directory and rebuilds glyphs
+    # from the TTF/OTF on canvas render — without these files the canvas
+    # silently falls back to a default font (CJK = tofu). Copy every source
+    # the project references into <outdir>/fonts/. 字体源随工程落盘：Studio
+    # 按工程目录解析 fonts/ 相对路径并现场铸字形，缺文件=画布静默回退。
+    import shutil as _shutil
+    outdir = os.path.dirname(os.path.abspath(args.output))
+    _copied = set()
+    for fobj in project.get("fonts", []):
+        for rel in ([fobj.get("source", {}).get("filePath")] +
+                    [s.get("filePath") for s in fobj.get("lvglAdditionalSources", [])]):
+            if not rel or rel in _copied:
+                continue
+            src = os.path.join(os.path.dirname(os.path.abspath(__file__)), rel.replace("/", os.sep))
+            if os.path.isfile(src):
+                dst = os.path.join(outdir, rel.replace("/", os.sep))
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                _shutil.copyfile(src, dst)
+                _copied.add(rel)
+            else:
+                print(f"⚠ font source missing, canvas will fall back: {rel}", file=sys.stderr)
+
     # ir_meta.json side-car for the reverse importer (see compiler_meta).
     meta = compiler_meta(compiler)
     if meta:

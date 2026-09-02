@@ -1,8 +1,8 @@
 {
  "name": "richdata-controls",
- "project": "E:\\eez_studio_project\\eez-studio-mcp\\examples\\richdata\\richdata.eez-project",
+ "project": "E:\\eez_studio_project\\eez-studio-mcp\\examples\\richdata\\build\\richdata.eez-project",
  "screen": "controls",
- "capturedAt": "2026-09-02 10:41:55",
+ "capturedAt": "2026-09-02 12:59:40",
  "size": [
   480,
   640
