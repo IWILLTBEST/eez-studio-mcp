@@ -646,6 +646,10 @@ function activate(context) {
         // happens (compile -> Studio export -> shims -> objects -> link).
         // 实时构建：spawn 流式读输出，逐步上状态栏。
         const buildSim = () => new Promise((resolve) => {
+            // Auto-reveal the UIXML output channel so the live build log is
+            // actually SEEN, not just appended in the background. 构建即弹出
+            // 输出面板，日志实时滚动（preserveFocus 不抢编辑器焦点）。
+            out().show(true);
             const child = spawn(py,
                 [path.join(findRepoRoot(f), "tools", "build_sim.py"), f],
                 { cwd: path.dirname(f), windowsHide: true,
