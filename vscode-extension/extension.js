@@ -8,7 +8,7 @@
  *            screenshot (paint-stability waited). The golden-grade truth.
  */
 const vscode = require("vscode");
-const { execFile } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
@@ -21,7 +21,10 @@ let output;
 // 显示——用户的 VS Code 版本上 visible 属性赋值静默无效。
 const status = vscode.window.createStatusBarItem("uixml.previewStatus", vscode.StatusBarAlignment.Left, 1000);
 const STATUS_LABEL = "$(eye) UIXML Preview";
+const runStatus = vscode.window.createStatusBarItem("uixml.runStatus", vscode.StatusBarAlignment.Left, 999);
+const RUN_LABEL = "$(play) UIXML Run";
 let statusTimer = null;
+let runStatusTimer = null;
 
 /** Transient status text with a spinner; settles back to the button label. */
 function setBusy(msg) {
@@ -33,6 +36,19 @@ function setDone(msg, ok = true) {
     clearTimeout(statusTimer);
     status.text = `${ok ? "$(check)" : "$(error)"} uixml: ${msg}`;
     statusTimer = setTimeout(() => { status.text = STATUS_LABEL; }, 3500);
+}
+
+/** Run-button status: show the LIVE build step (streamed from build_sim.py)
+ * and settle back to the button label. 运行按钮状态：实时显示构建步骤。 */
+function runStep(text) {
+    clearTimeout(runStatusTimer);
+    runStatus.text = `$(sync~spin) ${text}`;
+}
+
+function runDone(msg, ok = true) {
+    clearTimeout(runStatusTimer);
+    runStatus.text = `${ok ? "$(check)" : "$(error)"} ${msg}`;
+    runStatusTimer = setTimeout(() => { runStatus.text = RUN_LABEL; }, 3500);
 }
 
 function out() {
@@ -532,7 +548,11 @@ function activate(context) {
     status.tooltip = "Open the UIXML preview (Sketch / Pixel); Command Palette has UIXML: Run for the WASM simulator";
     status.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground");
     status.show();   // NOT `status.visible = true` - property write is a no-op on this build
-    out().appendLine("[activate] status item shown");
+    runStatus.command = "uixml.run";
+    runStatus.text = RUN_LABEL;
+    runStatus.tooltip = "Build & run the WASM simulator (real firmware C, interactive)";
+    runStatus.show();
+    out().appendLine("[activate] status items shown (preview + run)");
     const preview = new PreviewProvider();
 
     const activeUixml = () => {
@@ -620,25 +640,64 @@ function activate(context) {
         const simDir = path.join(path.dirname(f), "build", "sim");
         const htmlPath = require("path").join(simDir, "index.html");
         const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
+
+        // Live-streamed build: spawn (not execFile) with unbuffered UTF-8
+        // python so each build_sim.py step reaches the status bar AS it
+        // happens (compile -> Studio export -> shims -> objects -> link).
+        // 实时构建：spawn 流式读输出，逐步上状态栏。
         const buildSim = () => new Promise((resolve) => {
-            setBusy("building simulator…");
-            execFile(
-                py,
+            const child = spawn(py,
                 [path.join(findRepoRoot(f), "tools", "build_sim.py"), f],
-                { timeout: 600000, cwd: path.dirname(f) },
-                (err, stdout, stderr) => {
-                    out().appendLine(String(stdout || ""));
-                    if (err) {
-                        out().appendLine(String(stderr || err.message));
-                        out().show();
-                        setDone("simulator build failed", false);
-                        resolve(false);
-                    } else resolve(true);
+                { cwd: path.dirname(f), windowsHide: true,
+                  env: Object.assign({}, process.env,
+                      { PYTHONUNBUFFERED: "1", PYTHONUTF8: "1" }) });
+            const killTimer = setTimeout(() => child.kill(), 600000);
+            const onLines = (chunk) => {
+                for (const line of String(chunk).split(/\r?\n/)) {
+                    if (!line) continue;
+                    out().appendLine(line);
+                    // status-worthy: stage bullets, object counts, timings
+                    if (/^[•✓✗]|objects \(|compiled in|re-aligned|patched|translated|keys/.test(line)) {
+                        runStep(line.replace(/^[•]\s*/, "").slice(0, 44));
+                    }
                 }
-            );
+            };
+            child.stdout.on("data", onLines);
+            child.stderr.on("data", onLines);
+            child.on("error", (e) => {
+                clearTimeout(killTimer);
+                out().appendLine(String(e.message)); out().show();
+                runDone("build failed", false);
+                resolve(false);
+            });
+            child.on("close", (code) => {
+                clearTimeout(killTimer);
+                if (code !== 0) { out().show(); runDone("build failed", false); }
+                resolve(code === 0);
+            });
         });
-        const fsOk = await new Promise((r) => fs.access(htmlPath, (e) => r(!e)));
-        if (!fsOk && !(await buildSim())) return;
+
+        // Stale check: any source .uixml newer than the built sim -> rebuild.
+        // Repeat Run on untouched sources opens instantly instead. 源更新则重建。
+        const simStale = () => {
+            try {
+                const simMtime = fs.statSync(htmlPath).mtimeMs;
+                const dir = path.dirname(f);
+                const check = (d) => {
+                    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+                        if (e.name === "build" || e.name.startsWith(".")) continue;
+                        const p = path.join(d, e.name);
+                        if (e.isDirectory()) { if (check(p)) return true; }
+                        else if (e.name.toLowerCase().endsWith(".uixml")
+                                 && fs.statSync(p).mtimeMs > simMtime) return true;
+                    }
+                    return false;
+                };
+                return check(dir);
+            } catch { return true; }  // no sim yet (or unreadable) -> build
+        };
+        if ((simStale() || !(await new Promise((r) => fs.access(htmlPath, (e) => r(!e)))))
+            && !(await buildSim())) return;
         const panel = vscode.window.createWebviewPanel(
             "uixmlSim", `Run · ${path.basename(f)}`, vscode.ViewColumn.Beside,
             { enableScripts: true, retainContextWhenHidden: true,
@@ -653,7 +712,7 @@ function activate(context) {
         html = html.replace("var Module = {",
             `var Module = { locateFile: function(p) { return p.indexOf(".wasm") !== -1 ? "${wasmUri}" : p; },`);
         wv.html = html;
-        setDone("simulator running");
+        runDone("simulator ready");
     });
 
     const onChange = vscode.workspace.onDidChangeTextDocument((e) => preview.onDocChanged(e.document));
@@ -663,7 +722,7 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, runCmd, onChange, onSave, status);
+    context.subscriptions.push(compileCmd, checkCmd, previewCmd, importCmd, runCmd, onChange, onSave, status, runStatus);
 }
 
 function deactivate() {}
