@@ -40,3 +40,4 @@ examples/*/.eez-project-build
 examples/*/*.ir_meta.json
 examples/i18n/translations.yaml
 examples/*/sim/probe.*
+.sim-cache/

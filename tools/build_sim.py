@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -211,14 +212,27 @@ def main() -> int:
         "shellFit(); window.addEventListener('resize', shellFit);\n" % (W, H))
 
     print("• compile (object-cached)")
-    common = ["-DLV_CONF_INCLUDE_SIMPLE",
-              "-DSIM_W=" + str(W), "-DSIM_H=" + str(H),
-              "-I" + os.path.join(ROOT, "tools", "sim"),
-              "-I" + LVGL_ROOT,
-              "-I" + os.path.dirname(LVGL_ROOT),
-              "-I" + pdir,
-              "-include", os.path.join(pdir, "eez-flow.h"),
-              "-O1", "-Wall"]
+    # Per-project flags (SIM dims + the forced eez-flow.h include) apply ONLY
+    # to project sources and the shell — LVGL objects are project-independent
+    # and live in a SHARED cache (a new project's first build skips the ~4 min
+    # full-LVGL compile entirely). 工程无关的 LVGL 对象进全局共享缓存。
+    proj_flags = ["-DLV_CONF_INCLUDE_SIMPLE",
+                  "-DSIM_W=" + str(W), "-DSIM_H=" + str(H),
+                  "-I" + os.path.join(ROOT, "tools", "sim"),
+                  "-I" + LVGL_ROOT,
+                  "-I" + os.path.dirname(LVGL_ROOT),
+                  "-I" + pdir,
+                  "-include", os.path.join(pdir, "eez-flow.h"),
+                  "-O1", "-Wall"]
+    lvgl_flags = ["-DLV_CONF_INCLUDE_SIMPLE",
+                  "-I" + os.path.join(ROOT, "tools", "sim"),
+                  "-I" + LVGL_ROOT,
+                  "-I" + os.path.dirname(LVGL_ROOT),
+                  "-O1", "-Wall"]
+    conf_hash = hashlib.md5(
+        open(os.path.join(ROOT, "tools", "sim", "lv_conf.h"), "rb").read()
+    ).hexdigest()[:10]
+    shared_lvgl_dir = os.path.join(ROOT, ".sim-cache", f"lvgl-{conf_hash}")
     t0 = time.time()
     lvgl_srcs = sorted(glob.glob(os.path.join(LVGL_ROOT, "src", "**", "*.c"), recursive=True))
     proj_srcs = [os.path.join(pdir, f) for f in
@@ -227,12 +241,19 @@ def main() -> int:
     objs += build_objects(proj_srcs + font_objs_src +
                           [os.path.join(sim_dir, "actions_stub.c"),
                            os.path.join(sim_dir, "vars_stub.c")],
-                          obj_dir, common, "project")
-    objs += build_objects([os.path.join(pdir, "eez-flow.cpp")], obj_dir,
-                          common + ["-std=c++17"], "eez-framework")
-    objs += build_objects(lvgl_srcs, obj_dir, common, "lvgl")
+                          obj_dir, proj_flags, "project")
+    fw_src = os.path.join(pdir, "eez-flow.cpp")
+    fw_sig = os.path.join(obj_dir, "eez-flow.sig")
+    fw_md5 = hashlib.md5(open(fw_src, "rb").read()).hexdigest()
+    if os.path.exists(fw_sig) and open(fw_sig).read() == fw_md5:
+        for o in glob.glob(os.path.join(obj_dir, "*eez-flow*.o")):
+            os.utime(o)   # content unchanged: defeat the mtime cache check
+    objs += build_objects([fw_src], obj_dir,
+                          proj_flags + ["-std=c++17"], "eez-framework")
+    open(fw_sig, "w").write(fw_md5)
+    objs += build_objects(lvgl_srcs, shared_lvgl_dir, lvgl_flags, "lvgl(shared)")
     objs += build_objects([os.path.join(ROOT, "tools", "sim", "main_sim.c")],
-                          obj_dir, common, "sim-shell")
+                          obj_dir, proj_flags, "sim-shell")
     print(f"  compiled in {time.time()-t0:.0f}s")
 
     print("• link")
