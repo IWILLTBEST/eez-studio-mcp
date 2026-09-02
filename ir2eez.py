@@ -301,6 +301,16 @@ class Compiler:
         # 富数据部件的结构参数，落 ui_ext.h 给固件当命名常量。
         self.rich_widgets: list[dict[str, Any]] = []
         self.default_font = need_str("project.font", proj.get("font"), "")
+        # Font whitelist: catalog fonts + montserrat built-ins. A name outside
+        # both fails the build (a private-chain font leaking into a public
+        # example used to ship silently and Studio flagged it as check errors).
+        # 字体白名单：目录字体 + montserrat 内建；越界即报错。
+        self.known_fonts = {f.get("name", "") for f in load_font_catalog()}
+        if self.default_font and (self.default_font not in self.known_fonts
+                                  and not self.default_font.upper().startswith("MONTSERRAT")):
+            self.err("project.font",
+                     f"project font {self.default_font!r} not in the font catalog "
+                     f"(available: {sorted(self.known_fonts)}) nor a montserrat built-in")
         self.errors: list[str] = []
 
     def err(self, path: str, msg: str) -> None:
@@ -390,6 +400,11 @@ class Compiler:
         props: dict[str, Any] = dict(extra or {})
         font = node.get("font") or (self.default_font if use_default_font else "")
         if font:
+            if (font not in self.known_fonts
+                    and not font.upper().startswith("MONTSERRAT")):
+                self.err(f"{path}.font",
+                         f"font {font!r} not in the font catalog (available: "
+                         f"{sorted(self.known_fonts)}) nor a montserrat built-in")
             props["text_font"] = font
         if node.get("color"):
             props["text_color"] = normalize_color(str(node["color"]))
@@ -1456,9 +1471,29 @@ class Compiler:
         if self.errors:
             raise IRError("IR validation failed:\n  " + "\n  ".join(self.errors))
 
+        # texts section (upstream #1045): the flow engine resolves T"key" at
+        # runtime from the assets languages table — without this the firmware
+        # and simulator render empty strings / fail evaluation. Default
+        # language first: g_selectedLanguage starts at 0.
+        # texts 段：固件/模拟器运行时翻译的正源，默认语言必须排第一。
+        texts: dict[str, Any] | None = None
+        if self.strings:
+            lang_order = [self.strings_default] + sorted(
+                l for key in self.strings for l in self.strings[key]
+                if l != self.strings_default)
+            texts = {
+                "languages": [{"languageID": l} for l in lang_order],
+                "resources": [
+                    {"resourceID": key,
+                     "translations": [
+                         {"languageID": lang, "text": self.strings[key].get(lang, "")}
+                         for lang in lang_order]}
+                    for key in sorted(self.strings)],
+            }
+
         return assemble_project(pages, user_widgets,
                                 list(self.vars.vars.values()), actions,
-                                self.sw, self.sh)
+                                self.sw, self.sh, texts)
 
     # ----- flow action -----
 
@@ -1682,8 +1717,9 @@ class Compiler:
 # ---------- Project assembly 项目组装 ----------
 
 def assemble_project(pages: list, user_widgets: list, variables: list,
-                     actions: list, sw: int, sh: int) -> dict[str, Any]:
-    return {
+                     actions: list, sw: int, sh: int,
+                     texts: dict[str, Any] | None = None) -> dict[str, Any]:
+    project: dict[str, Any] = {
         "themesVersion": 1,
         "objID": oid(),
         "settings": {
@@ -1764,6 +1800,10 @@ def assemble_project(pages: list, user_widgets: list, variables: list,
             },
         }],
     }
+    if texts:
+        texts["objID"] = oid()
+        project["texts"] = texts
+    return project
 
 
 # ---------- Glyph coverage check 字形覆盖校验 ----------

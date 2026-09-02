@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
 <ui>
-  <project name="i18n-demo" width="480" height="320" font="cn_24" />
+  <project name="i18n-demo" width="480" height="320" font="demo_20" />
   <var name="speed_val" type="integer" default="1350" />
 </ui>

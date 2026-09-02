@@ -2,15 +2,15 @@
 <ui>
   <screen name="main">
     <panel id="root" x="0" y="0" w="480" h="320" bg="#101828" radius="0">
-      <label id="title" tr="title" x="24" y="20" w="360" h="34" font="cn_24" color="#E8EFFA" />
+      <label id="title" tr="title" x="24" y="20" w="360" h="34" font="demo_20" color="#E8EFFA" />
       <label id="row_speed" tr="speed" x="24" y="84" w="150" h="26" color="#8FA0BC" />
       <label id="val_speed" bind="speed_val" x="210" y="84" w="120" h="26" color="#5EE6C4" />
       <label id="row_temp" tr="temperature" x="24" y="124" w="150" h="26" color="#8FA0BC" />
       <label id="status" tr="status_ok" x="24" y="168" w="400" h="26" color="#5A6A86" />
       <button id="btn_start" text="" x="24" y="220" w="90" h="48" radius="10" bg="#1E7F5C" color="#FFFFFF" />
-      <label id="btn_start_lbl" tr="start" x="24" y="233" w="90" h="24" color="#FFFFFF" align="center" font="cn_24" />
+      <label id="btn_start_lbl" tr="start" x="24" y="233" w="90" h="24" color="#FFFFFF" align="center" font="demo_20" />
       <button id="btn_stop" text="" x="130" y="220" w="90" h="48" radius="10" bg="#7A2E3A" color="#FFFFFF" />
-      <label id="btn_stop_lbl" tr="stop" x="130" y="233" w="90" h="24" color="#FFFFFF" align="center" font="cn_24" />
+      <label id="btn_stop_lbl" tr="stop" x="130" y="233" w="90" h="24" color="#FFFFFF" align="center" font="demo_20" />
     </panel>
   </screen>
 </ui>

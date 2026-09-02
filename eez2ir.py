@@ -750,7 +750,21 @@ def eez_to_ir(project: dict[str, Any],
         for v in ir["variables"]:
             ctx.vars[v["name"]] = v.get("default")
 
-    if translations or meta.get("strings_default"):
+    # prefer the project's own texts section (ir2eez emits it since the
+    # runtime translation pipeline landed): languages[0] is the default
+    ptexts = project.get("texts") or {}
+    if ptexts.get("resources"):
+        default_lang = (ptexts.get("languages") or [{"languageID": "en"}])[0]["languageID"]
+        texts_map: dict[str, dict[str, str]] = {}
+        for res in ptexts["resources"]:
+            langs = {t["languageID"]: t.get("text", "")
+                     for t in res.get("translations", [])}
+            if langs:
+                texts_map[str(res["resourceID"])] = langs
+        ir["strings"] = {"default": default_lang, "texts": texts_map}
+        ctx.strings = texts_map
+        ctx.strings_default = default_lang
+    elif translations or meta.get("strings_default"):
         strings: dict[str, Any] = {"texts": translations or {}}
         if meta.get("strings_default"):
             strings["default"] = meta["strings_default"]

@@ -134,6 +134,50 @@ def main() -> int:
         open(fdh_path, "w", encoding="utf-8", newline="\n").write(fdh2)
         print(f"  flow_def.h extern re-aligned to {real_size}")
 
+    # T"key" translation: for LVGL projects the expression pushes the resource
+    # ID STRING and expects a translate hook on the target (upstream comment:
+    # "e.g. lv_i18n through the translate hook"); this eez-framework
+    # amalgamation has none yet (wasm rebuild pending upstream), and its
+    # Flow.translate is index-based -> eval error -> stopScript abort. Patch a
+    # string branch that resolves via a generated key->text table (default
+    # language). Idempotent marker. 固件侧正式契约仍走 translations.yaml。
+    fw_path = os.path.join(pdir, "eez-flow.cpp")
+    fw = open(fw_path, encoding="utf-8").read()
+    fw = re.sub(r"\n    // >>> UIXML_SIM_TRANSLATE.*?// <<< UIXML_SIM_TRANSLATE\n", "\n", fw, flags=re.S)
+    anchor = "static void do_OPERATION_TYPE_FLOW_TRANSLATE(EvalStack &stack) {\n    auto textResourceIndexValue = stack.pop();\n    int err;"
+    assert anchor in fw, "translate anchor"
+    patch = ('extern "C" const char *uixml_sim_translate(const char *key);\n'
+             + anchor + """
+    // >>> UIXML_SIM_TRANSLATE: LVGL expressions push the resource ID string.
+    if (textResourceIndexValue.type == VALUE_TYPE_STRING) {
+        const char *__tr = uixml_sim_translate(textResourceIndexValue.getString());
+        if (__tr) {
+            stack.push(Value::makeStringRef(__tr, strlen(__tr), 0x51eec0de));
+            return;
+        }
+    }
+    // <<< UIXML_SIM_TRANSLATE""")
+    fw = fw.replace(anchor, patch)
+    open(fw_path, "w", encoding="utf-8", newline="\n").write(fw)
+    print("  eez-flow.cpp translate patched")
+    # generated key->text table (default language = languages[0])
+    texts = json.load(open(proj, encoding="utf-8")).get("texts")
+    lines = ['#include <string.h>',
+             'extern "C" const char *uixml_sim_translate(const char *key) {']
+    if texts and texts.get("languages") and texts.get("resources"):
+        dflt = texts["languages"][0]["languageID"]
+        for res in texts["resources"]:
+            tr = next((t["text"] for t in res.get("translations", [])
+                       if t.get("languageID") == dflt), "")
+            key = res["resourceID"].replace("\\", "\\\\").replace('"', '\\"')
+            txt = (tr or key).replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'    if (strcmp(key, "{key}") == 0) return "{txt}";')
+    lines.append('    return 0;')
+    lines.append('}')
+    open(os.path.join(sim_dir, "sim_translations.cpp"), "w",
+         encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
+    print(f"  sim_translations.cpp: {len(texts['resources']) if texts and texts.get('resources') else 0} keys")
+
     meta = json.load(open(proj, encoding="utf-8"))
     gen = meta["settings"]["general"]
     W, H = gen.get("displayWidth", 480), gen.get("displayHeight", 320)
@@ -248,8 +292,8 @@ def main() -> int:
     if os.path.exists(fw_sig) and open(fw_sig).read() == fw_md5:
         for o in glob.glob(os.path.join(obj_dir, "*eez-flow*.o")):
             os.utime(o)   # content unchanged: defeat the mtime cache check
-    objs += build_objects([fw_src], obj_dir,
-                          proj_flags + ["-std=c++17"], "eez-framework")
+    objs += build_objects([fw_src, os.path.join(sim_dir, "sim_translations.cpp")],
+                          obj_dir, proj_flags + ["-std=c++17"], "eez-framework")
     open(fw_sig, "w").write(fw_md5)
     objs += build_objects(lvgl_srcs, shared_lvgl_dir, lvgl_flags, "lvgl(shared)")
     objs += build_objects([os.path.join(ROOT, "tools", "sim", "main_sim.c")],
