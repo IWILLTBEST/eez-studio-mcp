@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>UIXML Simulator</title>
+<style>
+  html,body { margin:0; height:100%; background:#0B0E14; color:#8FA0BC;
+              font:13px sans-serif; display:flex; flex-direction:column; }
+  #bar { padding:6px 10px; display:flex; gap:12px; align-items:center;
+         border-bottom:1px solid #2A3040; }
+  #bar b { color:#5EE6C4; }
+  #wrap { flex:1; display:flex; align-items:center; justify-content:center;
+          overflow:hidden; }
+  canvas { background:#000; image-rendering:pixelated; cursor:pointer;
+           border:1px solid #2A3040; }
+  #err { padding:6px 10px; color:#E5484D; white-space:pre-wrap; display:none; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>UIXML Simulator</b><span id="proj">…</span>
+  <span style="margin-left:auto" id="hint">click to interact — same C code as the firmware</span>
+</div>
+<div id="wrap"><canvas id="canvas"></canvas></div>
+<div id="err"></div>
+<script>
+  window.addEventListener("error", function(e) {
+    var d = document.getElementById("err");
+    d.style.display = "block";
+    d.textContent += (e.message || e) + "
+";
+  });
+  window.addEventListener("unhandledrejection", function(e) {
+    var d = document.getElementById("err");
+    d.style.display = "block";
+    d.textContent += "rejection: " + (e.reason && e.reason.message || e.reason) + "
+";
+  });
+  var Module = {
+    canvas: document.getElementById("canvas"),
+    print: function(t) { console.log("[sim] " + t); },
+    printErr: function(t) {
+      var e = document.getElementById("err");
+      e.style.display = "block"; e.textContent += t + "\n"; console.error(t);
+    },
+    onRuntimeInitialized: function() { shellFit(); }
+  };
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
