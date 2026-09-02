@@ -84,7 +84,13 @@ def main() -> int:
         if make:
             r = run([sys.executable, os.path.join(exdir, make)], exdir)
             record(f"{ex}/make", r.returncode == 0, (r.stderr or r.stdout)[-120:].strip())
-        project = os.path.join(exdir, ir.replace(".uixml", ".eez-project"))
+        # Build layout mirrors tools/build_sim.py: <example>/build/, split-form
+        # manifests (project.uixml) named after the example dir.
+        # 产物路径与 build_sim 保持一致：build/ 下，split 清单按目录名命名。
+        stem = ir.replace(".uixml", "")
+        if stem == "project":
+            stem = ex
+        project = os.path.join(exdir, "build", stem + ".eez-project")
         r = run([sys.executable, os.path.join(ROOT, "ir2eez.py"),
                  os.path.join(exdir, ir), "-o", project], ROOT)
         ok = r.returncode == 0 and "✗" not in (r.stdout + r.stderr)

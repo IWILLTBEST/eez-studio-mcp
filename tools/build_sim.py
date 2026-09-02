@@ -93,7 +93,15 @@ def main() -> int:
 
     src = os.path.abspath(args.input)
     if src.endswith((".uixml", ".xml")):
-        proj = os.path.splitext(src)[0] + ".eez-project"
+        # All generated output lands in <example>/build/ — sources stay clean.
+        # Split-form manifests are named project.uixml; name the build after
+        # the example dir instead. 产物统一落 build/，split 清单按目录名命名。
+        stem = os.path.splitext(os.path.basename(src))[0]
+        if stem == "project":
+            stem = os.path.basename(os.path.dirname(src))
+        bdir = os.path.join(os.path.dirname(src), "build")
+        proj = os.path.join(bdir, stem + ".eez-project")
+        os.makedirs(bdir, exist_ok=True)
         if not args.no_export:
             print("• ir2eez compile")
             r = subprocess.run([sys.executable, os.path.join(ROOT, "ir2eez.py"),

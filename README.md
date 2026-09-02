@@ -146,6 +146,8 @@ The delivery discipline: **IR change → compile → check 0/0 → golden match*
 
 ## The examples
 
+Each example directory holds **sources only** (`*.uixml`, `make_*.py`); every generated artifact — the `.eez-project`, the Studio C export, side-cars and the simulator — lands in `examples/<name>/build/` (git-ignored; rebuild with `tools/build_sim.py` or `tools/ci-check.py`).
+
 | Example | Shows |
 |---|---|
 | `examples/motor` / `motor-en` | 3-screen motor controller, 13 bound variables, 12 native actions, CN/EN layout variants |

@@ -91,7 +91,27 @@ function bridgeCall(tool, args, timeoutMs = 60000) {
     });
 }
 
-const projectPathFor = (f) => f.replace(/\.uixml$/i, ".eez-project");
+/** Generated artifacts live in <example>/build/ (mirrors tools/build_sim.py).
+ * Split-form manifests are named project.uixml — name the build after the
+ * example dir instead. 产物落 build/；split 清单按目录名命名。 */
+const projectPathFor = (f) => {
+    const dir = path.dirname(f);
+    let stem = path.basename(f).replace(/\.uixml$/i, "");
+    if (stem === "project") stem = path.basename(dir);
+    return path.join(dir, "build", stem + ".eez-project");
+};
+
+/** Inverse of projectPathFor for imports: build/<name>.eez-project maps back
+ * to the source dir. Importing a split-form build writes a full single-file
+ * <name>.uixml next to the sources — the manifest is never clobbered. */
+const uixmlPathFor = (eezFile) => {
+    const dir = path.dirname(eezFile);
+    if (path.basename(dir) === "build") {
+        const stem = path.basename(eezFile).replace(/\.eez-project$/i, "");
+        return path.join(path.dirname(dir), stem + ".uixml");
+    }
+    return eezFile.replace(/\.eez-project$/i, ".uixml");
+};
 
 function runCompiler(uixmlFile) {
     const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
@@ -114,7 +134,7 @@ function runCompiler(uixmlFile) {
  * out-of-subset edits; the previous uixml is kept as .bak. */
 function runImport(eezFile) {
     const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
-    const out = eezFile.replace(/\.eez-project$/i, ".uixml");
+    const out = uixmlPathFor(eezFile);
     return new Promise((resolve, reject) => {
         execFile(
             py,
@@ -580,7 +600,7 @@ function activate(context) {
         let f = activeUixml();
         if (!f) f = await pickUixml();
         if (!f) return;
-        const simDir = path.join(path.dirname(f), "sim");
+        const simDir = path.join(path.dirname(f), "build", "sim");
         const htmlPath = require("path").join(simDir, "index.html");
         const py = vscode.workspace.getConfiguration("uixml").get("pythonPath", "python");
         const buildSim = () => new Promise((resolve) => {
