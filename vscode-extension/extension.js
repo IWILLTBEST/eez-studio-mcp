@@ -609,7 +609,12 @@ function activate(context) {
         let html = fs.readFileSync(htmlPath, "utf-8");
         const wv = panel.webview;
         const jsUri = wv.asWebviewUri(vscode.Uri.file(path.join(simDir, "index.js")));
+        const wasmUri = wv.asWebviewUri(vscode.Uri.file(path.join(simDir, "index.wasm")));
         html = html.replace(/src="index\.js"/g, `src="${jsUri}"`);
+        // emscripten derives the wasm URL from the script location, which is a
+        // virtual vscode-webview:// origin here — pin it to the resource URI
+        html = html.replace("var Module = {",
+            `var Module = { locateFile: function(p) { return p.indexOf(".wasm") !== -1 ? "${wasmUri}" : p; },`);
         wv.html = html;
         setDone("simulator running");
     });
