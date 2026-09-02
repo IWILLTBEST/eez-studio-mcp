@@ -14,7 +14,12 @@ const path = require("path");
 const fs = require("fs");
 
 let output;
-const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+// Explicit id + high priority; and note: show the item with .show() — on the
+// user's VS Code build the `visible = true` PROPERTY write is a silent no-op
+// (reading .visible back returns undefined), which is why the button never
+// appeared since a VS Code auto-update. 显式 id + 高优先级；必须用 .show()
+// 显示——用户的 VS Code 版本上 visible 属性赋值静默无效。
+const status = vscode.window.createStatusBarItem("uixml.previewStatus", vscode.StatusBarAlignment.Left, 1000);
 const STATUS_LABEL = "$(eye) UIXML Preview";
 let statusTimer = null;
 
@@ -520,11 +525,15 @@ class PreviewProvider {
 }
 
 function activate(context) {
-    const preview = new PreviewProvider();
+    // Status item FIRST — nothing later in activation may gate the button.
+    // 状态项最先建立：激活期任何后置步骤都不能挡住按钮。
     status.command = "uixml.preview";
     status.text = STATUS_LABEL;
     status.tooltip = "Open the UIXML preview (Sketch / Pixel); Command Palette has UIXML: Run for the WASM simulator";
-    status.visible = true;
+    status.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground");
+    status.show();   // NOT `status.visible = true` - property write is a no-op on this build
+    out().appendLine("[activate] status item shown");
+    const preview = new PreviewProvider();
 
     const activeUixml = () => {
         // active editor first, then any visible one — focus may sit in the
