@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="overview">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="6" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel id="metrics_row" x="72" y="44" w="944" h="80" bg="#0A0E14">
+      <panel id="card_speed" x="0" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="转速 SPEED" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="speed" preview="1350" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_speed" />
+        <label text="RPM" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_torque" x="239" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="扭矩 TORQUE" color="#7A8499" x="12" y="8" w="130" h="16" />
+        <label bind="torque" preview="42.5" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_torque" />
+        <label text="N·m" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_power" x="478" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="功率 POWER" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="power" preview="6.2" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_power" />
+        <label text="kW" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_eff" x="717" y="0" w="227" h="80" bg="#1C2333" radius="8">
+        <label text="效率 EFFICIENCY" color="#7A8499" x="12" y="8" w="150" h="16" />
+        <label bind="eff" preview="94.8" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_eff" />
+        <label text="%" color="#7A8499" x="12" y="58" w="30" h="14" />
+      </panel>
+    </panel>
+    <panel id="gauge_row" x="72" y="136" w="944" h="240" bg="#0A0E14">
+      <panel id="gauge_temp" x="0" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="电机温度" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="motor_temp" min="0" max="150" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_motor_temp" />
+        <label bind="motor_temp" preview="62" color="#F6B93B" font="demo_20" x="113" y="90" w="80" h="28" align="center" />
+        <label text="°C" color="#7A8499" x="133" y="118" w="40" h="16" align="center" />
+      </panel>
+      <panel id="gauge_volt" x="318" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="母线电压" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="bus_volt" min="0" max="900" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_bus_volt" />
+        <label bind="bus_volt" preview="540" color="#2E86DE" font="demo_20" x="103" y="90" w="100" h="28" align="center" />
+        <label text="V DC" color="#7A8499" x="123" y="118" w="60" h="16" align="center" />
+      </panel>
+      <panel id="gauge_curr" x="636" y="0" w="306" h="240" bg="#151B28" radius="8">
+        <label text="输出电流" color="#7A8499" x="108" y="8" w="90" h="16" align="center" />
+        <arc bind="out_curr" min="0" max="30" x="83" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_out_curr" />
+        <label bind="out_curr" preview="12.8" color="#2E86DE" font="demo_20" x="103" y="90" w="100" h="28" align="center" />
+        <label text="A" color="#7A8499" x="138" y="118" w="30" h="16" align="center" />
+      </panel>
+    </panel>
+    <panel id="ctrl_row" x="72" y="388" w="944" h="204" bg="#0A0E14">
+      <panel id="ctrl_speed" x="0" y="0" w="466" h="204" bg="#151B28" radius="8">
+        <label text="速度控制" color="#7A8499" x="12" y="8" w="80" h="16" />
+        <line x="12" y="28" w="442" />
+        <label text="目标" color="#7A8499" x="12" y="44" w="50" h="16" />
+        <slider bind="speed" min="0" max="3000" x="70" y="46" w="280" h="18" on-value_changed="on_speed" />
+        <label bind="speed" preview="1350" color="#0ABDE3" x="360" y="44" w="60" h="16" id="sl_speed" />
+        <label text="加速" color="#7A8499" x="12" y="80" w="50" h="16" />
+        <slider bind="torque" min="1" max="30" x="70" y="82" w="280" h="18" on-value_changed="on_torque" />
+        <label text="5.0s" color="#0ABDE3" x="360" y="80" w="50" h="16" />
+      </panel>
+      <panel id="ctrl_run" x="478" y="0" w="466" h="204" bg="#151B28" radius="8">
+        <label text="运行控制" color="#7A8499" x="12" y="8" w="80" h="16" />
+        <line x="12" y="28" w="442" />
+        <label text="正转" color="#7A8499" x="12" y="50" w="50" h="16" />
+        <switch bind="fwd_on" x="70" y="46" w="50" h="24" on-value_changed="on_fwd" />
+        <label text="运行中" color="#27AE60" x="130" y="50" w="60" h="16" />
+        <label text="节能" color="#7A8499" x="12" y="90" w="50" h="16" />
+        <switch bind="eco_on" x="70" y="86" w="50" h="24" on-value_changed="on_eco" />
+        <label text="关闭" color="#7A8499" x="130" y="90" w="50" h="16" />
+      </panel>
+    </panel>
+  </screen>
+</ui>

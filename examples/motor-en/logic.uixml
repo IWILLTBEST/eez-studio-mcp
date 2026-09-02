@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <project name="motor" width="1024" height="600" font="demo_16" />
+  <var name="led_run" type="integer" default="255" />
+  <var name="led_can" type="integer" default="255" />
+  <var name="led_rs" type="integer" default="120" />
+  <var name="rtc" type="string" default="2026-08-18 14:30" />
+  <var name="speed" type="integer" default="1350" />
+  <var name="torque" type="integer" default="42" />
+  <var name="power" type="integer" default="6" />
+  <var name="eff" type="integer" default="94" />
+  <var name="motor_temp" type="integer" default="62" />
+  <var name="bus_volt" type="integer" default="540" />
+  <var name="out_curr" type="integer" default="12" />
+  <var name="fwd_on" type="boolean" default="true" />
+  <var name="eco_on" type="boolean" default="false" />
+  <action name="nav_overview">
+    <change-screen screen="overview" />
+  </action>
+  <action name="nav_params">
+    <change-screen screen="params" />
+  </action>
+  <action name="nav_alarms">
+    <change-screen screen="alarms" />
+  </action>
+  <action name="on_speed" />
+  <action name="on_torque" />
+  <action name="on_motor_temp" />
+  <action name="on_bus_volt" />
+  <action name="on_out_curr" />
+  <action name="on_fwd" />
+  <action name="on_eco" />
+  <action name="on_poles" />
+  <action name="on_ctrl_mode" />
+  <action name="on_can_baud" />
+  <action name="on_protocol" />
+  <action name="ack_alarm" />
+</ui>

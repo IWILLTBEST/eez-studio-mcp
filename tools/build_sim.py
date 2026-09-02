@@ -94,8 +94,8 @@ def main() -> int:
     src = os.path.abspath(args.input)
     if src.endswith((".uixml", ".xml")):
         # All generated output lands in <example>/build/ — sources stay clean.
-        # Split-form manifests are named project.uixml; name the build after
-        # the example dir instead. 产物统一落 build/，split 清单按目录名命名。
+        # Split-form manifests carry the example name (glass.uixml); a legacy
+        # project.uixml still maps to the dir name. 产物统一落 build/。
         stem = os.path.splitext(os.path.basename(src))[0]
         if stem == "project":
             stem = os.path.basename(os.path.dirname(src))

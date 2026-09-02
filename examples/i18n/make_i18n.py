@@ -90,6 +90,6 @@ manifest = """<?xml version="1.0" encoding="utf-8"?>
   <include src="screens/main.uixml"/>
 </ui>
 """
-with open(os.path.join(HERE, "project.uixml"), "w", encoding="utf-8", newline="") as f:
+with open(os.path.join(HERE, "i18n.uixml"), "w", encoding="utf-8", newline="") as f:
     f.write(manifest)
-print("written:", os.path.join(HERE, "project.uixml"))
+print("written:", os.path.join(HERE, "i18n.uixml"))

@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="alarms">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="130" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel x="72" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#E74C3C" x="12" y="24" w="8" h="8" />
+      <label text="2" color="#E74C3C" font="demo_20" x="28" y="14" w="40" h="28" />
+      <label text="严重" color="#7A8499" x="80" y="20" w="50" h="16" />
+    </panel>
+    <panel x="384" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#F6B93B" x="12" y="24" w="8" h="8" />
+      <label text="3" color="#F6B93B" font="demo_20" x="28" y="14" w="40" h="28" />
+      <label text="警告" color="#7A8499" x="80" y="20" w="50" h="16" />
+    </panel>
+    <panel x="696" y="44" w="300" h="56" bg="#1C2333" radius="6">
+      <led color="#27AE60" x="12" y="24" w="8" h="8" />
+      <label text="12" color="#27AE60" font="demo_20" x="28" y="14" w="50" h="28" />
+      <label text="正常" color="#7A8499" x="90" y="20" w="50" h="16" />
+    </panel>
+    <panel x="72" y="112" w="924" h="480" bg="#151B28" radius="8" scrollable="true">
+      <label text="时间" color="#7A8499" x="40" y="8" w="60" h="14" />
+      <label text="描述" color="#7A8499" x="120" y="8" w="60" h="14" />
+      <label text="操作" color="#7A8499" x="850" y="8" w="50" h="14" />
+      <line x="10" y="26" w="904" />
+      <panel x="10" y="34" w="904" h="40" bg="#1C2333" radius="4" id="alarm_row1">
+        <led color="#E74C3C" x="10" y="16" w="8" h="8" />
+        <label text="14:22:15" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="电机过流 152% (阈值 150%)" x="110" y="12" w="300" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" id="ack1" on-clicked="ack_alarm" on-long_pressed="ack_row1" />
+      </panel>
+      <panel x="10" y="82" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#E74C3C" x="10" y="16" w="8" h="8" />
+        <label text="13:05:42" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="母线过压 815V (阈值 800V)" x="110" y="12" w="300" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="130" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="12:30:18" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="电机温度偏高 85°C" x="110" y="12" w="250" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="178" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="11:15:33" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="CAN 通信延迟 15ms" x="110" y="12" w="250" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+      <panel x="10" y="226" w="904" h="40" bg="#1C2333" radius="4">
+        <led color="#F6B93B" x="10" y="16" w="8" h="8" />
+        <label text="09:00:07" color="#7A8499" x="30" y="12" w="70" h="16" />
+        <label text="RS485 未连接" x="110" y="12" w="200" h="16" />
+        <button text="确认" x="820" y="8" w="70" h="24" on-clicked="ack_alarm" />
+      </panel>
+    </panel>
+  </screen>
+</ui>

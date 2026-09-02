@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="params">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="88" h="564" bg="#151B28">
+      <button text="&#10;Overview" x="6" y="6" w="76" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;Params" x="6" y="68" w="76" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_params" />
+      <button text="&#10;Alarms" x="6" y="130" w="76" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="68" w="4" h="52" bg="#2E86DE" />
+      <line x="87" y="0" dir="v" h="564" />
+    </panel>
+    <panel x="96" y="44" w="302" h="548" bg="#151B28" radius="8">
+      <label text="Motor" color="#2E86DE" x="12" y="10" w="200" h="16" />
+      <line x="12" y="32" w="272" />
+      <label text="Rated power" color="#7A8499" x="12" y="46" w="114" h="16" />
+      <label text="7.5 kW" x="134" y="46" w="80" h="16" />
+      <label text="Rated volt" color="#7A8499" x="12" y="72" w="114" h="16" />
+      <label text="380 V AC" x="134" y="72" w="90" h="16" />
+      <label text="Rated curr" color="#7A8499" x="12" y="98" w="114" h="16" />
+      <label text="16.5 A" x="134" y="98" w="70" h="16" />
+      <label text="Poles" color="#7A8499" x="12" y="124" w="114" h="16" />
+      <dropdown selected="0" x="134" y="120" w="100" h="26" id="dd_poles" on-value_changed="on_poles" options="4P,2P,6P" />
+      <label text="Ctrl mode" color="#7A8499" x="12" y="156" w="114" h="16" />
+      <dropdown selected="0" x="134" y="152" w="120" h="26" id="dd_ctrl_mode" on-value_changed="on_ctrl_mode" options="V/F,Vector,Servo" />
+      <label text="Carrier freq" color="#7A8499" x="12" y="190" w="114" h="16" />
+      <slider bind="torque" min="2" max="16" x="134" y="192" w="104" h="18" on-value_changed="on_torque" />
+      <label text="8 kHz" color="#0ABDE3" x="244" y="190" w="46" h="16" />
+    </panel>
+    <panel x="408" y="44" w="302" h="548" bg="#151B28" radius="8">
+      <label text="Protection" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="272" />
+      <label text="Overcurrent" color="#7A8499" x="12" y="46" w="114" h="16" />
+      <slider bind="motor_temp" min="50" max="200" x="134" y="48" w="104" h="18" on-value_changed="on_motor_temp" />
+      <label text="150%" color="#0ABDE3" x="242" y="46" w="48" h="16" />
+      <label text="Overvoltage" color="#7A8499" x="12" y="80" w="114" h="16" />
+      <slider bind="bus_volt" min="600" max="900" x="134" y="82" w="104" h="18" on-value_changed="on_bus_volt" />
+      <label text="800V" color="#0ABDE3" x="242" y="80" w="48" h="16" />
+      <label text="Overtemp" color="#7A8499" x="12" y="114" w="114" h="16" />
+      <slider bind="motor_temp" min="60" max="120" x="134" y="116" w="104" h="18" on-value_changed="on_motor_temp" />
+      <label text="90°C" color="#0ABDE3" x="242" y="114" w="48" h="16" />
+      <label text="Stall" color="#7A8499" x="12" y="150" w="114" h="16" />
+      <switch bind="fwd_on" x="134" y="146" w="50" h="24" on-value_changed="on_fwd" />
+      <label text="Phase loss" color="#7A8499" x="12" y="186" w="114" h="16" />
+      <switch bind="eco_on" x="134" y="182" w="50" h="24" on-value_changed="on_eco" />
+    </panel>
+    <panel x="720" y="44" w="302" h="548" bg="#151B28" radius="8">
+      <label text="Communication" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="272" />
+      <label text="CAN Baudrate" color="#7A8499" x="12" y="46" w="114" h="16" />
+      <dropdown selected="1" x="134" y="42" w="90" h="26" id="dd_can_baud" on-value_changed="on_can_baud" options="250K,500K,1M" />
+      <label text="CAN Node" color="#7A8499" x="12" y="78" w="114" h="16" />
+      <slider bind="out_curr" min="1" max="127" x="134" y="80" w="92" h="18" on-value_changed="on_out_curr" />
+      <label text="Node 3" color="#0ABDE3" x="232" y="78" w="58" h="16" />
+      <label text="RS485" color="#7A8499" x="12" y="110" w="114" h="16" />
+      <dropdown selected="0" x="134" y="106" w="140" h="26" id="dd_protocol" on-value_changed="on_protocol" options="Modbus RTU,Custom" />
+      <label text="Heartbeat" color="#7A8499" x="12" y="146" w="114" h="16" />
+      <slider bind="speed" min="100" max="5000" x="134" y="148" w="92" h="18" on-value_changed="on_speed" />
+      <label text="1.0s" color="#0ABDE3" x="232" y="146" w="48" h="16" />
+    </panel>
+  </screen>
+</ui>

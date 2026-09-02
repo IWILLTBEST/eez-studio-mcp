@@ -92,8 +92,9 @@ function bridgeCall(tool, args, timeoutMs = 60000) {
 }
 
 /** Generated artifacts live in <example>/build/ (mirrors tools/build_sim.py).
- * Split-form manifests are named project.uixml — name the build after the
- * example dir instead. 产物落 build/；split 清单按目录名命名。 */
+ * Split-form manifests carry the example name (glass.uixml); a legacy
+ * project.uixml manifest still maps to the dir name. 产物落 build/；
+ * 分离清单按示例名命名，legacy project.uixml 仍按目录名兜底。 */
 const projectPathFor = (f) => {
     const dir = path.dirname(f);
     let stem = path.basename(f).replace(/\.uixml$/i, "");
@@ -102,15 +103,22 @@ const projectPathFor = (f) => {
 };
 
 /** Inverse of projectPathFor for imports: build/<name>.eez-project maps back
- * to the source dir. Importing a split-form build writes a full single-file
- * <name>.uixml next to the sources — the manifest is never clobbered. */
+ * to the source dir. The natural target <name>.uixml is now the split-form
+ * MANIFEST for every example — importing over it would destroy the include
+ * list, so when the target is a manifest the result lands as a full
+ * single-file <name>-imported.uixml next to the sources. */
 const uixmlPathFor = (eezFile) => {
     const dir = path.dirname(eezFile);
+    let out = eezFile.replace(/\.eez-project$/i, ".uixml");
     if (path.basename(dir) === "build") {
-        const stem = path.basename(eezFile).replace(/\.eez-project$/i, "");
-        return path.join(path.dirname(dir), stem + ".uixml");
+        out = path.join(path.dirname(dir), path.basename(out));
     }
-    return eezFile.replace(/\.eez-project$/i, ".uixml");
+    try {
+        if (fs.existsSync(out) && /<include\s/.test(fs.readFileSync(out, "utf8"))) {
+            out = out.replace(/\.uixml$/i, "-imported.uixml");
+        }
+    } catch { /* unreadable target — fall through to the natural name */ }
+    return out;
 };
 
 function runCompiler(uixmlFile) {

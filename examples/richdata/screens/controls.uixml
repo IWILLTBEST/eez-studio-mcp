@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="controls">
+    <panel id="root2" x="0" y="0" w="480" h="640" bg="#101828">
+      <label id="title2" x="24" y="16" w="300" h="24" text="Controls Demo" font="demo_20" color="#E8EFFA" />
+      <label id="lbl_scale" x="24" y="52" w="200" h="18" text="RPM scale" color="#8FA0BC" />
+      <scale id="rpm" mode="round_inner" min="0" max="3000" angle="270" rotate="135" ticks="11" major="5" x="24" y="74" w="180" h="180">
+        <section from="0" to="2200" color="#3A4B66" width="8" />
+        <section from="2200" to="2600" color="#F2B84B" width="8" />
+        <section from="2600" to="3000" color="#E5484D" width="8" />
+      </scale>
+      <calendar id="cal" today="2026-09-01" x="240" y="74" w="210" h="210" header="arrow" />
+      <label id="lbl_count" x="24" y="286" w="200" h="18" text="Pulse count" color="#8FA0BC" />
+      <spinbox id="count" bind="pulse_count" min="0" max="9999" digits="4" x="24" y="308" w="130" h="46" bg="#1A2438" />
+      <textarea id="input" text="" x="24" y="374" w="432" h="44" bg="#0B1220" />
+      <keyboard id="kb" textarea="input" mode="number" x="24" y="426" w="432" h="190" />
+    </panel>
+  </screen>
+</ui>

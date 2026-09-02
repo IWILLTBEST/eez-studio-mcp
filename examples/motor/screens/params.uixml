@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="params">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="64" h="564" bg="#151B28">
+      <button text="&#10;总览" x="6" y="6" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;参数" x="6" y="68" w="52" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_params" />
+      <button text="&#10;报警" x="6" y="130" w="52" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="68" w="4" h="52" bg="#2E86DE" />
+      <line x="63" y="0" dir="v" h="564" />
+    </panel>
+    <panel x="72" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="电机参数 / Motor" color="#2E86DE" x="12" y="10" w="200" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="额定功率" color="#7A8499" x="12" y="46" w="80" h="16" />
+      <label text="7.5 kW" x="110" y="46" w="80" h="16" />
+      <label text="额定电压" color="#7A8499" x="12" y="72" w="80" h="16" />
+      <label text="380 V AC" x="110" y="72" w="90" h="16" />
+      <label text="额定电流" color="#7A8499" x="12" y="98" w="80" h="16" />
+      <label text="16.5 A" x="110" y="98" w="70" h="16" />
+      <label text="极数" color="#7A8499" x="12" y="124" w="50" h="16" />
+      <dropdown selected="0" x="110" y="120" w="100" h="26" id="dd_poles" on-value_changed="on_poles" options="4P,2P,6P" />
+      <label text="控制模式" color="#7A8499" x="12" y="156" w="80" h="16" />
+      <dropdown selected="0" x="110" y="152" w="120" h="26" id="dd_ctrl_mode" on-value_changed="on_ctrl_mode" options="V/F,Vector,Servo" />
+      <label text="载波频率" color="#7A8499" x="12" y="190" w="80" h="16" />
+      <slider bind="torque" min="2" max="16" x="110" y="192" w="130" h="18" on-value_changed="on_torque" />
+      <label text="8 kHz" color="#0ABDE3" x="250" y="190" w="50" h="16" />
+    </panel>
+    <panel x="386" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="保护参数 / Protection" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="过流保护" color="#7A8499" x="12" y="46" w="80" h="16" />
+      <slider bind="motor_temp" min="50" max="200" x="110" y="48" w="130" h="18" on-value_changed="on_motor_temp" />
+      <label text="150%" color="#0ABDE3" x="250" y="46" w="50" h="16" />
+      <label text="过压保护" color="#7A8499" x="12" y="80" w="80" h="16" />
+      <slider bind="bus_volt" min="600" max="900" x="110" y="82" w="130" h="18" on-value_changed="on_bus_volt" />
+      <label text="800V" color="#0ABDE3" x="250" y="80" w="50" h="16" />
+      <label text="过温阈值" color="#7A8499" x="12" y="114" w="80" h="16" />
+      <slider bind="motor_temp" min="60" max="120" x="110" y="116" w="130" h="18" on-value_changed="on_motor_temp" />
+      <label text="90°C" color="#0ABDE3" x="250" y="114" w="50" h="16" />
+      <label text="失速保护" color="#7A8499" x="12" y="150" w="80" h="16" />
+      <switch bind="fwd_on" x="110" y="146" w="50" h="24" on-value_changed="on_fwd" />
+      <label text="缺相检测" color="#7A8499" x="12" y="186" w="80" h="16" />
+      <switch bind="eco_on" x="110" y="182" w="50" h="24" on-value_changed="on_eco" />
+    </panel>
+    <panel x="700" y="44" w="304" h="548" bg="#151B28" radius="8">
+      <label text="通信 / Communication" color="#2E86DE" x="12" y="10" w="220" h="16" />
+      <line x="12" y="32" w="280" />
+      <label text="CAN 波特率" color="#7A8499" x="12" y="46" w="90" h="16" />
+      <dropdown selected="1" x="120" y="42" w="90" h="26" id="dd_can_baud" on-value_changed="on_can_baud" options="250K,500K,1M" />
+      <label text="CAN 节点" color="#7A8499" x="12" y="78" w="80" h="16" />
+      <slider bind="out_curr" min="1" max="127" x="120" y="80" w="120" h="18" on-value_changed="on_out_curr" />
+      <label text="Node 3" color="#0ABDE3" x="250" y="78" w="60" h="16" />
+      <label text="RS485" color="#7A8499" x="12" y="110" w="60" h="16" />
+      <dropdown selected="0" x="120" y="106" w="140" h="26" id="dd_protocol" on-value_changed="on_protocol" options="Modbus RTU,Custom" />
+      <label text="心跳间隔" color="#7A8499" x="12" y="146" w="80" h="16" />
+      <slider bind="speed" min="100" max="5000" x="120" y="148" w="120" h="18" on-value_changed="on_speed" />
+      <label text="1.0s" color="#0ABDE3" x="250" y="146" w="50" h="16" />
+    </panel>
+  </screen>
+</ui>

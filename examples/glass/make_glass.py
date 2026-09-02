@@ -206,5 +206,5 @@ MANIFEST = "\n".join([
     "</ui>",
     "",
 ])
-open(os.path.join(d, "project.uixml"), "w", encoding="utf-8", newline="\n").write(MANIFEST)
-print("written: project.uixml + logic.uixml + screens/main.uixml")
+open(os.path.join(d, "glass.uixml"), "w", encoding="utf-8", newline="\n").write(MANIFEST)
+print("written: glass.uixml + logic.uixml + screens/main.uixml")

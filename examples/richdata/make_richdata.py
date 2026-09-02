@@ -4,8 +4,11 @@ Table and Chart (bare LVGL objects; structure exported to ui_ext.h constants
 for firmware runtime setup). 富数据部件演示：滚轮完整编译；表格/图表结构进 ui_ext.h。"""
 import os
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", ".."))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
 import uixml
+from split_uixml import split_ir
 
 W, H = 480, 640
 
@@ -139,6 +142,7 @@ ir["screens"].append({
     }],
 })
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "richdata.uixml")
-uixml.ir_to_xml(ir, out)
-print("written:", out)
+# Emit the Qt-style split (manifest richdata.uixml + logic + screens/); the
+# splitter self-checks that the manifest re-parses to the identical IR.
+# 产分离形态；分离器自检清单与单文件 IR 逐字段一致。
+sys.exit(0 if split_ir(ir, HERE, "richdata") else 1)

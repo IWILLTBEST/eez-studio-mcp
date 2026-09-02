@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="settings">
+    <panel id="root3" x="0" y="0" w="480" h="640" bg="#101828">
+      <tabview id="cfg" bind="mode_idx" position="top" barSize="44" x="16" y="16" w="448" h="420" on-value_changed="on_mode_change">
+        <tab title="Display">
+          <label id="t1a" x="16" y="16" w="200" h="20" text="Brightness" color="#8FA0BC" />
+          <slider id="bright" x="16" y="44" w="320" h="12" />
+          <label id="t1b" x="16" y="76" w="200" h="20" text="Theme: Dark" color="#5EE6C4" />
+        </tab>
+        <tab title="Network">
+          <label id="t2a" x="16" y="16" w="300" h="20" text="Host: 192.168.1.10" color="#8FA0BC" />
+          <label id="t2b" x="16" y="44" w="300" h="20" text="Port: 502" color="#8FA0BC" />
+          <switch id="dhcp" x="340" y="12" w="50" h="25" />
+        </tab>
+      </tabview>
+    </panel>
+  </screen>
+</ui>

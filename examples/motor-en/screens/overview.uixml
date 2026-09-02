@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <screen name="overview">
+    <instance widget="StatusBar" x="0" y="0" />
+    <panel x="0" y="36" w="88" h="564" bg="#151B28">
+      <button text="&#10;Overview" x="6" y="6" w="76" h="52" color="#2E86DE" bg="#1B2C42" radius="8" on-clicked="nav_overview" />
+      <button text="&#10;Params" x="6" y="68" w="76" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_params" />
+      <button text="&#10;Alarms" x="6" y="130" w="76" h="52" color="#7A8499" bg="#151B28" radius="8" on-clicked="nav_alarms" />
+      <panel x="0" y="6" w="4" h="52" bg="#2E86DE" />
+      <line x="87" y="0" dir="v" h="564" />
+    </panel>
+    <panel id="metrics_row" x="96" y="44" w="920" h="80" bg="#0A0E14">
+      <panel id="card_speed" x="0" y="0" w="221" h="80" bg="#1C2333" radius="8">
+        <label text="Speed" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="speed" preview="1350" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_speed" />
+        <label text="RPM" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_torque" x="233" y="0" w="221" h="80" bg="#1C2333" radius="8">
+        <label text="Torque" color="#7A8499" x="12" y="8" w="130" h="16" />
+        <label bind="torque" preview="42.5" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_torque" />
+        <label text="N·m" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_power" x="466" y="0" w="221" h="80" bg="#1C2333" radius="8">
+        <label text="Power" color="#7A8499" x="12" y="8" w="120" h="16" />
+        <label bind="power" preview="6.2" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_power" />
+        <label text="kW" color="#7A8499" x="12" y="58" w="50" h="14" />
+      </panel>
+      <panel id="card_eff" x="699" y="0" w="221" h="80" bg="#1C2333" radius="8">
+        <label text="Efficiency" color="#7A8499" x="12" y="8" w="150" h="16" />
+        <label bind="eff" preview="94.8" color="#0ABDE3" font="demo_20" x="12" y="30" w="150" h="30" id="val_eff" />
+        <label text="%" color="#7A8499" x="12" y="58" w="30" h="14" />
+      </panel>
+    </panel>
+    <panel id="gauge_row" x="96" y="136" w="920" h="240" bg="#0A0E14">
+      <panel id="gauge_temp" x="0" y="0" w="298" h="240" bg="#151B28" radius="8">
+        <label text="Motor Temp" color="#7A8499" x="89" y="8" w="120" h="16" align="center" />
+        <arc bind="motor_temp" min="0" max="150" x="79" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_motor_temp" />
+        <label bind="motor_temp" preview="62" color="#F6B93B" font="demo_20" x="109" y="90" w="80" h="28" align="center" />
+        <label text="°C" color="#7A8499" x="129" y="118" w="40" h="16" align="center" />
+      </panel>
+      <panel id="gauge_volt" x="311" y="0" w="298" h="240" bg="#151B28" radius="8">
+        <label text="Bus Voltage" color="#7A8499" x="84" y="8" w="131" h="16" align="center" />
+        <arc bind="bus_volt" min="0" max="900" x="79" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_bus_volt" />
+        <label bind="bus_volt" preview="540" color="#2E86DE" font="demo_20" x="99" y="90" w="100" h="28" align="center" />
+        <label text="V DC" color="#7A8499" x="119" y="118" w="60" h="16" align="center" />
+      </panel>
+      <panel id="gauge_curr" x="622" y="0" w="298" h="240" bg="#151B28" radius="8">
+        <label text="Output Current" color="#7A8499" x="68" y="8" w="162" h="16" align="center" />
+        <arc bind="out_curr" min="0" max="30" x="79" y="40" w="140" h="140" bgStartAngle="135" bgEndAngle="45" on-value_changed="on_out_curr" />
+        <label bind="out_curr" preview="12.8" color="#2E86DE" font="demo_20" x="99" y="90" w="100" h="28" align="center" />
+        <label text="A" color="#7A8499" x="134" y="118" w="30" h="16" align="center" />
+      </panel>
+    </panel>
+    <panel id="ctrl_row" x="96" y="388" w="920" h="204" bg="#0A0E14">
+      <panel id="ctrl_speed" x="0" y="0" w="454" h="204" bg="#151B28" radius="8">
+        <label text="Speed Control" color="#7A8499" x="12" y="8" w="132" h="16" />
+        <line x="12" y="28" w="430" />
+        <label text="Target" color="#7A8499" x="12" y="44" w="66" h="16" />
+        <slider bind="speed" min="0" max="3000" x="84" y="46" w="252" h="18" on-value_changed="on_speed" />
+        <label bind="speed" preview="1350" color="#0ABDE3" x="348" y="44" w="60" h="16" id="sl_speed" />
+        <label text="Accel" color="#7A8499" x="12" y="80" w="62" h="16" />
+        <slider bind="torque" min="1" max="30" x="84" y="82" w="252" h="18" on-value_changed="on_torque" />
+        <label text="5.0s" color="#0ABDE3" x="348" y="80" w="50" h="16" />
+      </panel>
+      <panel id="ctrl_run" x="466" y="0" w="454" h="204" bg="#151B28" radius="8">
+        <label text="Run Control" color="#7A8499" x="12" y="8" w="116" h="16" />
+        <line x="12" y="28" w="430" />
+        <label text="Forward" color="#7A8499" x="12" y="50" w="76" h="16" />
+        <switch bind="fwd_on" x="92" y="46" w="50" h="24" on-value_changed="on_fwd" />
+        <label text="Running" color="#27AE60" x="150" y="50" w="76" h="16" />
+        <label text="ECO" color="#7A8499" x="12" y="90" w="50" h="16" />
+        <switch bind="eco_on" x="92" y="86" w="50" h="24" on-value_changed="on_eco" />
+        <label text="Off" color="#7A8499" x="150" y="90" w="50" h="16" />
+      </panel>
+    </panel>
+  </screen>
+</ui>

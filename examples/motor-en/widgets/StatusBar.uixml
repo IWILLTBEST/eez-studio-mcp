@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <widget width="1024" height="36" bg="#151B28" name="StatusBar">
+    <label text="MotorDrive MD-200" font="demo_20" color="#2E86DE" x="12" y="7" w="180" h="22" />
+    <led color="#27AE60" bind="led_run" x="210" y="14" w="8" h="8" />
+    <label text="RUN" color="#7A8499" x="222" y="10" w="36" h="16" />
+    <led color="#27AE60" bind="led_can" x="268" y="14" w="8" h="8" />
+    <label text="CAN" color="#7A8499" x="280" y="10" w="40" h="16" />
+    <led color="#F6B93B" bind="led_rs" x="330" y="14" w="8" h="8" />
+    <label text="RS485" color="#7A8499" x="342" y="10" w="50" h="16" />
+    <label text="Output: 45.2 Hz" color="#E0E4EA" x="700" y="10" w="100" h="16" />
+    <label bind="rtc" preview="2026-08-18 14:30" color="#E0E4EA" x="830" y="10" w="170" h="16" />
+  </widget>
+</ui>

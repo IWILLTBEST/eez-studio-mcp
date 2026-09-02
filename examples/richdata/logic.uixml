@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui>
+  <project name="richdata-demo" width="480" height="640" font="demo_16" />
+  <var name="mode_idx" type="integer" default="1" />
+  <var name="pulse_count" type="integer" default="42" />
+  <action name="on_mode_change">
+    <set variable="mode_idx" value="mode_idx" />
+  </action>
+</ui>
