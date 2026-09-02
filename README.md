@@ -8,6 +8,14 @@ An MCP (Model Context Protocol) server + AI skill + IR compiler that lets Claude
 
 [中文文档 (Chinese)](README.zh-CN.md) · [Patched EEZ Studio](https://github.com/IWILLTBEST/studio) (required runtime)
 
+**Repo map** — one repository, three parts:
+
+| Part | Contents | Who uses it |
+|---|---|---|
+| **Core** | `ir2eez.py` `eez2ir.py` `uixml.py` `tools/` (`build_sim.py`, `split_uixml.py`, `sim/`) | The IR↔UIXML compiler + simulator shells — the shared foundation both lines below are built on |
+| **MCP line** | `mcp-server.mjs` / `eez_mcp_server.py` + [`studio-extension/`](studio-extension/) | Point any MCP client at the server to drive EEZ Studio; the `.eez-extension` installs into Studio |
+| **Qt line** | [`vscode/`](vscode/) | Standalone VS Code extension (UIXML editing, preview, Run) — needs the core, not the MCP line |
+
 ![architecture](docs/img/architecture.svg)
 
 ## Screenshots
@@ -113,7 +121,7 @@ The **reverse channel** closes the loop: hand edits made in EEZ Studio flow back
 
 ## The VS Code extension
 
-[`vscode-extension/`](vscode-extension/) turns the pipeline into an editor experience — syntax highlighting, XSD validation and **two status-bar buttons**:
+[`vscode/`](vscode/) turns the pipeline into an editor experience — syntax highlighting, XSD validation and **two status-bar buttons**:
 
 | | |
 |---|---|
@@ -125,7 +133,7 @@ Commands: `UIXML: Compile` · `UIXML: Check` · `UIXML: Preview` · `UIXML: Run`
 Install from source:
 
 ```bash
-cd vscode-extension && npx @vscode/vsce package --no-dependencies
+cd vscode && npx @vscode/vsce package --no-dependencies
 code --install-extension uixml-preview-*.vsix
 ```
 
@@ -143,7 +151,7 @@ The delivery discipline: **IR change → compile → check 0/0 → golden match*
 
 ## Setup
 
-> **Status 2026-09**: the full extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)) — an installed extension now receives everything it needs: `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `activateProjectTab`, `openProject`, `requireModule`) plus three capability toolkits (object model / LVGL / assets). The [`extension/`](extension/) runs the **full 47-tool set end-to-end** on that API alone. Animation `repeat`/`playback` ([#1049](https://github.com/eez-open/studio/pull/1049)) is in review; we also asked upstream about native editing for chart/table/list/menu/tileview ([#1050](https://github.com/eez-open/studio/issues/1050)).
+> **Status 2026-09**: the full extension interface landed upstream ([eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)) — an installed extension now receives everything it needs: `api.renderer` (`getOpenProjects`, `getActiveProjectStore`, `activateProjectTab`, `openProject`, `requireModule`) plus three capability toolkits (object model / LVGL / assets). The [`studio-extension/`](studio-extension/) runs the **full 47-tool set end-to-end** on that API alone. Animation `repeat`/`playback` ([#1049](https://github.com/eez-open/studio/pull/1049)) is merged. Following the [#1050](https://github.com/eez-open/studio/issues/1050) discussion we contributed native Chart ([#1051](https://github.com/eez-open/studio/pull/1051)) and Table ([#1052](https://github.com/eez-open/studio/pull/1052)) widget properties upstream — in review.
 
 **Preferred once your Studio build includes those PRs** — install the packaged extension ([release `extension-v0.2.0`](https://github.com/IWILLTBEST/eez-studio-mcp/releases/tag/extension-v0.2.0), `.eez-extension` file) via the extensions manager, and skip the fork entirely:
 

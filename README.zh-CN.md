@@ -8,6 +8,14 @@ MCP（Model Context Protocol）服务器 + AI 技能 + IR 编译器：让 Claude
 
 [English](README.md) · [带桥的 EEZ Studio](https://github.com/IWILLTBEST/studio)（必需运行时）
 
+**仓库地图** —— 一个仓库，三块：
+
+| 块 | 内容 | 谁在用 |
+|---|---|---|
+| **核心** | `ir2eez.py` `eez2ir.py` `uixml.py` `tools/`（`build_sim.py`、`split_uixml.py`、`sim/`） | IR↔UIXML 编译器 + 模拟器壳——下面两条线共同的地基 |
+| **MCP 线** | `mcp-server.mjs` / `eez_mcp_server.py` + [`studio-extension/`](studio-extension/) | 任何 MCP 客户端指到 server 即可操控 EEZ Studio；`.eez-extension` 装进 Studio |
+| **Qt 线** | [`vscode/`](vscode/) | 独立的 VS Code 扩展（UIXML 编辑、预览、Run）——只依赖核心，不依赖 MCP 线 |
+
 ![架构](docs/img/architecture.svg)
 
 ## 截图
@@ -113,7 +121,7 @@ examples/motor/
 
 ## VS Code 插件
 
-[`vscode-extension/`](vscode-extension/) 把整条流水线搬进编辑器——语法高亮、XSD 校验和**两个状态栏按钮**：
+[`vscode/`](vscode/) 把整条流水线搬进编辑器——语法高亮、XSD 校验和**两个状态栏按钮**：
 
 | | |
 |---|---|
@@ -125,7 +133,7 @@ examples/motor/
 源码安装：
 
 ```bash
-cd vscode-extension && npx @vscode/vsce package --no-dependencies
+cd vscode && npx @vscode/vsce package --no-dependencies
 code --install-extension uixml-preview-*.vsix
 ```
 
@@ -143,7 +151,7 @@ Sketch 离线可用；Pixel 与 Run 需要桥（见[安装](#安装)）。零配
 
 ## 安装
 
-> **状态 2026-09**：完整扩展接口已并入上游（[eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)）——安装的扩展能拿到所需的一切：`api.renderer`（`getOpenProjects`、`getActiveProjectStore`、`activateProjectTab`、`openProject`、`requireModule`）加三个能力工具箱（对象模型 / LVGL / 资产）。[`extension/`](extension/) 只靠这套 API 就能端到端跑**全部 47 个工具**。动画 `repeat`/`playback`（[#1049](https://github.com/eez-open/studio/pull/1049)）评审中；我们也向上游询问了 chart/table/list/menu/tileview 的原生编辑计划（[#1050](https://github.com/eez-open/studio/issues/1050)）。
+> **状态 2026-09**：完整扩展接口已并入上游（[eez-open/studio#1043](https://github.com/eez-open/studio/pull/1043) + [#1044](https://github.com/eez-open/studio/pull/1044) + [#1047](https://github.com/eez-open/studio/pull/1047)）——安装的扩展能拿到所需的一切：`api.renderer`（`getOpenProjects`、`getActiveProjectStore`、`activateProjectTab`、`openProject`、`requireModule`）加三个能力工具箱（对象模型 / LVGL / 资产）。[`studio-extension/`](studio-extension/) 只靠这套 API 就能端到端跑**全部 47 个工具**。动画 `repeat`/`playback`（[#1049](https://github.com/eez-open/studio/pull/1049)）已合并。继 [#1050](https://github.com/eez-open/studio/issues/1050) 的讨论，我们向上游贡献了 Chart（[#1051](https://github.com/eez-open/studio/pull/1051)）和 Table（[#1052](https://github.com/eez-open/studio/pull/1052)）的原生部件属性——评审中。
 
 1. **带桥的 EEZ Studio**——若你的 Studio 构建已包含上述 PR：从 [release `extension-v0.2.0`](https://github.com/IWILLTBEST/eez-studio-mcp/releases/tag/extension-v0.2.0) 安装 `.eez-extension` 即可，完全不用 fork。在 PR 进 release 之前，改造版 fork 是最省事的运行时（桥内建，无需扩展）：
 
