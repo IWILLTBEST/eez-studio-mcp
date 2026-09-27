@@ -30,6 +30,8 @@ EEZ Studio  <->  studio-extension/ (Studio 侧桥扩展)
 
 完整工具清单见 `eez_mcp_server.py`（Python）或 `mcp-server.mjs`（Node）。
 
+用这些工具端到端拍摄的示例屏幕见 [eezml 仓](https://github.com/IWILLTBEST/eezml#screenshots)。
+
 ## 安装
 
 1. **安装 Studio 桥**：把 `eez-studio-mcp-extension-0.2.0.eez-extension` 导入 EEZ Studio（它会启动 17620 端口的 HTTP 桥）。

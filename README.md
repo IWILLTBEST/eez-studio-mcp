@@ -30,6 +30,8 @@ EEZ Studio  <->  studio-extension/ (Studio-side bridge extension)
 
 See `eez_mcp_server.py` (Python) or `mcp-server.mjs` (Node) for the full tool list.
 
+Example screens captured end-to-end with these tools live in the [eezml repo](https://github.com/IWILLTBEST/eezml#screenshots).
+
 ## Setup
 
 1. **Install the Studio bridge**: import `eez-studio-mcp-extension-0.2.0.eez-extension` into EEZ Studio (it starts the HTTP bridge on port 17620).
