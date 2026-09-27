@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- richdata, split form: logic/screens stitched here. -->
-<ui>
-  <include src="logic.uixml"/>
-  <include src="screens/main.uixml"/>
-  <include src="screens/controls.uixml"/>
-  <include src="screens/settings.uixml"/>
-</ui>

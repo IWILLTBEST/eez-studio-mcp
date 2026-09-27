@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- motor, split form: logic/widgets/screens stitched here. -->
-<ui>
-  <include src="logic.uixml"/>
-  <include src="widgets/StatusBar.uixml"/>
-  <include src="screens/overview.uixml"/>
-  <include src="screens/params.uixml"/>
-  <include src="screens/alarms.uixml"/>
-</ui>
