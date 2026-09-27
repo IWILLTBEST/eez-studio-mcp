@@ -30,7 +30,34 @@ EEZ Studio  <->  studio-extension/ (Studio-side bridge extension)
 
 See `eez_mcp_server.py` (Python) or `mcp-server.mjs` (Node) for the full tool list.
 
-Example screens captured end-to-end with these tools live in the [eezml repo](https://github.com/IWILLTBEST/eezml#screenshots).
+
+## Screenshots
+
+Everything below was generated from the [eezml](https://github.com/IWILLTBEST/eezml)
+toolchain and captured through the MCP `screenshot` tool — the AI takes these
+itself, no manual touch.
+
+**Motor controller** (3 screens, English variant):
+
+| overview | params | alarms |
+|---|---|---|
+| ![overview](docs/img/motor-en-overview.png) | ![params](docs/img/motor-en-params.png) | ![alarms](docs/img/motor-en-alarms.png) |
+
+**Glassmorphism showcase** — translucent cards, shadows, gradient bg, staggered entrance animation:
+
+![glass](docs/img/glass-dashboard.png)
+
+**i18n, one source two languages** — switch `strings.default` and recompile:
+
+| English | 中文 |
+|---|---|
+| ![en](docs/img/i18n-en.png) | ![zh](docs/img/i18n-zh.png) |
+
+**Rich data demo** — roller, gauge, calendar, spinbox, keyboard, tabview:
+
+| main | controls | settings |
+|---|---|---|
+| ![main](docs/img/richdata.png) | ![controls](docs/img/richdata-controls.png) | ![settings](docs/img/richdata-settings.png) |
 
 ## Setup
 
