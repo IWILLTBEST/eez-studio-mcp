@@ -47,6 +47,7 @@ WTYPE_TO_IR: dict[str, str] = {
     "LVGLLabelWidget": "label",
     "LVGLButtonWidget": "button",
     "LVGLImageWidget": "image",
+    "LVGLGifWidget": "gif",
     "LVGLBarWidget": "bar",
     "LVGLSliderWidget": "slider",
     "LVGLTextareaWidget": "textarea",
@@ -253,7 +254,7 @@ def parse_widget(obj: dict, path: str, ctx: "ImportCtx",
                 node["text"] = text
     elif t == "button":
         _collapse_button_label(obj, node, path, ctx)
-    elif t == "image":
+    elif t in ("image", "gif"):
         node["src"] = obj.get("image", "")
     elif t in ("bar", "slider"):
         _skip_default(node, obj, "min", 0)
