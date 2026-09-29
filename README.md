@@ -23,12 +23,34 @@ EEZ Studio  <->  studio-extension/ (Studio-side bridge extension)
 |---|---|
 | Project & screens | open_project, navigate, reload_project, project overviews |
 | Widget editing | read/write widget properties, styles, flags — the AI edits the project the user has open |
-| Screenshots | screenshot (canvas), window_screenshot (whole window incl. panels) |
+| Screenshots | screenshot — canvas PNG, returned to the model as an image block |
 | Live checking | build -> check with errors/warnings surfaced to the model |
 | Runtime debugging | debug_start (run/debug), send_input (click/swipe), read/write_variable, debug_control |
 | Visual regression | visual_baseline / visual_check — golden screenshot per screen, pixel compare with AA tolerance |
 
-See `eez_mcp_server.py` (Python) or `mcp-server.mjs` (Node) for the full tool list.
+### All 47 tools
+
+| Area | Tools |
+|---|---|
+| IR pipeline | `read_ir`, `write_ir`, `compile`, `reload`, `navigate`, `screenshot` |
+| Widget-level editing | `list_objects`, `get_object`, `update_object`, `delete_object`, `create_widget`, `create_screen`, `undo`, `redo`, `goto_object`, `get_selection` — addressing by path or objID |
+| Styles & themes | `list_styles`, `update_style`, `create_style`, `delete_style`, `add_color`, `set_theme_color`, `set_preview_theme` |
+| Project files | `read_project_json`, `write_project_json`, `patch_project_json` |
+| Projects | `list_projects`, `select_project`, `open_project`, `create_project` |
+| Assets | `list_assets`, `add_font`, `add_image` |
+| Diagnostics | `read_output`, `check`, `build_project` |
+| Runtime debugging | `debug_start`, `debug_stop`, `debug_control`, `debug_status`, `read_variable`, `write_variable`, `send_input` (click / swipe injection) |
+| Close-ups | `screenshot_object` |
+| Visual regression | `visual_baseline`, `visual_check` |
+| Infra | `ping` |
+
+Resources: project IR / schema / skill docs plus live resources `eez://checks`, `eez://debug`, `eez://state` (subscribable — pushed on change). Long operations (check / build / debug_start / add_font …) report progress.
+
+> `visual_baseline` / `visual_check` shell out to `tools/visreg.py`, which moved to the [eezml](https://github.com/IWILLTBEST/eezml) repo in the 2026-09 split. The servers auto-detect a sibling `eezml/` checkout; alternatively point `EEZ_VISREG_SCRIPT` at it (python with PIL+numpy required, override via `EEZ_VISREG_PYTHON`).
+
+### AI workflow manual
+
+The step-by-step manual for AI-built projects — IR schema, layout rules, interaction patterns, font pipeline, visual-regression discipline — lives in [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md).
 
 
 ## Screenshots

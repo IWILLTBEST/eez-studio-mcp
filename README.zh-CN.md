@@ -23,12 +23,34 @@ EEZ Studio  <->  studio-extension/ (Studio 侧桥扩展)
 |---|---|
 | 工程与屏幕 | open_project、navigate、reload_project、工程总览 |
 | 部件编辑 | 读写部件属性/样式/flags——AI 直接编辑用户打开的工程 |
-| 截图 | screenshot（画布）、window_screenshot（含面板的整窗） |
+| 截图 | screenshot——画布 PNG，以图片块回传给模型 |
 | 实时检查 | build -> check，错误/警告直接回传给模型 |
 | 运行时调试 | debug_start（run/debug）、send_input（点击/滑动）、read/write_variable、debug_control |
 | 视觉回归 | visual_baseline / visual_check——每屏金标截图，带抗锯齿容差的像素比对 |
 
-完整工具清单见 `eez_mcp_server.py`（Python）或 `mcp-server.mjs`（Node）。
+### 全部 47 个工具
+
+| 领域 | 工具 |
+|---|---|
+| IR 流水线 | `read_ir`、`write_ir`、`compile`、`reload`、`navigate`、`screenshot` |
+| 部件级编辑 | `list_objects`、`get_object`、`update_object`、`delete_object`、`create_widget`、`create_screen`、`undo`、`redo`、`goto_object`、`get_selection`——路径或 objID 寻址 |
+| 样式与主题 | `list_styles`、`update_style`、`create_style`、`delete_style`、`add_color`、`set_theme_color`、`set_preview_theme` |
+| 工程文件 | `read_project_json`、`write_project_json`、`patch_project_json` |
+| 工程管理 | `list_projects`、`select_project`、`open_project`、`create_project` |
+| 资产 | `list_assets`、`add_font`、`add_image` |
+| 诊断 | `read_output`、`check`、`build_project` |
+| 运行时调试 | `debug_start`、`debug_stop`、`debug_control`、`debug_status`、`read_variable`、`write_variable`、`send_input`（点击/滑动注入） |
+| 部件特写 | `screenshot_object` |
+| 视觉回归 | `visual_baseline`、`visual_check` |
+| 基础 | `ping` |
+
+资源：工程 IR/规范/技能文档 + 活资源 `eez://checks`、`eez://debug`、`eez://state`（可订阅，变化即推送）。长操作（check/build/debug_start/add_font…）支持进度通知。
+
+> `visual_baseline` / `visual_check` 转调 `tools/visreg.py`——该脚本在 2026-09 仓库分离时随工具链迁入 [eezml](https://github.com/IWILLTBEST/eezml) 仓。server 会自动探测兄弟目录的 `eezml/` 克隆；也可以用 `EEZ_VISREG_SCRIPT` 显式指定（需带 PIL+numpy 的 python，可用 `EEZ_VISREG_PYTHON` 覆盖解释器）。
+
+### AI 构建工作流手册
+
+AI 生成工程的分步手册——IR 格式、布局规则、交互模式、字体流水线、视觉回归纪律——在 [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md)。
 
 
 ## 截图

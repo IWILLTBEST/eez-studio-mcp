@@ -933,7 +933,18 @@ async function callTool(name, arguments_) {
         // 中文：转调 visreg.py（需 python+PIL/numpy）；check 差异退出码 1 属于结果而非错误。
         const { execFile } = await import("node:child_process");
         const py = process.env.EEZ_VISREG_PYTHON || "python";
-        const visreg = path.join(WORKDIR, "tools", "visreg.py");
+        // tools/visreg.py moved to the eezml repo in the 2026-09 split: an
+        // explicit EEZ_VISREG_SCRIPT wins, then the old in-repo path, then a
+        // sibling eezml checkout (the E:/eez_studio_project layout).
+        const visregFallback = path.join(WORKDIR, "tools", "visreg.py");
+        const visreg =
+            [
+                process.env.EEZ_VISREG_SCRIPT,
+                visregFallback,
+                path.join(WORKDIR, "..", "eezml", "tools", "visreg.py"),
+            ]
+                .filter(Boolean)
+                .find((p) => fs.existsSync(p)) ?? visregFallback;
         const args = [
             visreg,
             name === "visual_baseline" ? "baseline" : "check",

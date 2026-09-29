@@ -1088,7 +1088,23 @@ async def call_tool(name: str, arguments: dict) -> list:
         import sys
 
         py = os.environ.get("EEZ_VISREG_PYTHON", sys.executable)
-        visreg = os.path.join(WORKDIR, "tools", "visreg.py")
+        # tools/visreg.py moved to the eezml repo in the 2026-09 split: an
+        # explicit EEZ_VISREG_SCRIPT wins, then the old in-repo path, then a
+        # sibling eezml checkout (the E:/eez_studio_project layout).
+        visreg = next(
+            (
+                p
+                for p in (
+                    os.environ.get("EEZ_VISREG_SCRIPT"),
+                    os.path.join(WORKDIR, "tools", "visreg.py"),
+                    os.path.normpath(
+                        os.path.join(WORKDIR, "..", "eezml", "tools", "visreg.py")
+                    ),
+                )
+                if p and os.path.isfile(p)
+            ),
+            os.path.join(WORKDIR, "tools", "visreg.py"),
+        )
         args = [
             py, visreg,
             "baseline" if name == "visual_baseline" else "check",
