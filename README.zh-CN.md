@@ -50,7 +50,7 @@ EEZ Studio  <->  studio-extension/ (Studio 侧桥扩展)
 
 ### AI 构建工作流手册
 
-AI 生成工程的分步手册——IR 格式、布局规则、交互模式、字体流水线、视觉回归纪律——在 [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md)。
+AI 生成工程的分步手册——IR 格式、布局规则、交互模式、字体流水线、视觉回归纪律——在 [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md)（中文版 [SKILL.zh-CN.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.zh-CN.md)，内容等价）。
 
 
 ## 截图

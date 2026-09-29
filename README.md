@@ -50,7 +50,7 @@ Resources: project IR / schema / skill docs plus live resources `eez://checks`, 
 
 ### AI workflow manual
 
-The step-by-step manual for AI-built projects — IR schema, layout rules, interaction patterns, font pipeline, visual-regression discipline — lives in [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md).
+The step-by-step manual for AI-built projects — IR schema, layout rules, interaction patterns, font pipeline, visual-regression discipline — lives in [eezml/SKILL.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.md) (Chinese: [SKILL.zh-CN.md](https://github.com/IWILLTBEST/eezml/blob/main/SKILL.zh-CN.md), content-equivalent).
 
 
 ## Screenshots
